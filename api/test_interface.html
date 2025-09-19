@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CanaryQA MCP Test Interface</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f7;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1d1d1f;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e5e5e7;
+            border-radius: 8px;
+        }
+        .section h2 {
+            color: #333;
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #1d1d1f;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d2d2d7;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .output {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .error {
+            color: #dc3545;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .success {
+            color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .session-info {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .session-list {
+            display: grid;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .session-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .session-item .info {
+            flex: 1;
+        }
+        .session-item .actions {
+            display: flex;
+            gap: 8px;
+        }
+        .session-item button {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        .status-ready { background: #cff4fc; color: #055160; }
+        .status-recording { background: #fff3cd; color: #664d03; }
+        .status-completed { background: #d1e7dd; color: #0a3622; }
+        .status-error { background: #f8d7da; color: #721c24; }
+        .emoji { font-size: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ CanaryQA MCP Test Interface</h1>
+        
+        <!-- Start Recording Section -->
+        <div class="section">
+            <h2><span class="emoji">🚀</span> Start Recording</h2>
+            <form id="startRecordingForm">
+                <div class="form-group">
+                    <label for="eventId">Event ID (optional)</label>
+                    <input type="text" id="eventId" placeholder="Leave empty for default event">
+                </div>
+                <div class="form-group">
+                    <label for="teamName">Team Name *</label>
+                    <input type="text" id="teamName" value="Test Team" required>
+                </div>
+                <div class="form-group">
+                    <label for="pitchTitle">Pitch Title *</label>
+                    <input type="text" id="pitchTitle" value="Browser Test Pitch" required>
+                </div>
+                <button type="submit">Start Recording</button>
+            </form>
+            <div id="startOutput" class="output" style="display: none;"></div>
+        </div>
+
+        <!-- Current Session Info -->
+        <div id="currentSessionSection" class="section" style="display: none;">
+            <h2><span class="emoji">📋</span> Current Session</h2>
+            <div id="sessionInfo" class="session-info"></div>
+            <button id="getSessionDetails">Refresh Session Details</button>
+            <button id="stopRecording">Stop Recording</button>
+            <div id="sessionOutput" class="output" style="display: none;"></div>
+        </div>
+
+        <!-- Stop Recording Section -->
+        <div class="section">
+            <h2><span class="emoji">⏹️</span> Stop Recording</h2>
+            <form id="stopRecordingForm">
+                <div class="form-group">
+                    <label for="stopSessionId">Session ID</label>
+                    <input type="text" id="stopSessionId" placeholder="Enter session ID to stop" required>
+                </div>
+                <div class="form-group">
+                    <label for="audioData">Audio Data (Base64, optional)</label>
+                    <textarea id="audioData" rows="3" placeholder="Base64 encoded audio data (optional)"></textarea>
+                </div>
+                <button type="submit">Stop Recording</button>
+            </form>
+            <div id="stopOutput" class="output" style="display: none;"></div>
+        </div>
+
+        <!-- Session Management -->
+        <div class="section">
+            <h2><span class="emoji">📝</span> Session Management</h2>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button id="listSessions">List All Sessions</button>
+                <button id="refreshSessions">Refresh</button>
+            </div>
+            <div>
+                <label for="filterEvent">Filter by Event ID</label>
+                <input type="text" id="filterEvent" placeholder="Event ID filter (optional)">
+            </div>
+            <div id="sessionsList" class="session-list"></div>
+            <div id="listOutput" class="output" style="display: none;"></div>
+        </div>
+
+        <!-- Get Playback URL -->
+        <div class="section">
+            <h2><span class="emoji">🔗</span> Playback URL</h2>
+            <form id="playbackForm">
+                <div class="form-group">
+                    <label for="playbackSessionId">Session ID</label>
+                    <input type="text" id="playbackSessionId" placeholder="Enter session ID" required>
+                </div>
+                <div class="form-group">
+                    <label for="expiresHours">Expires (hours)</label>
+                    <select id="expiresHours">
+                        <option value="1">1 hour</option>
+                        <option value="6">6 hours</option>
+                        <option value="24">24 hours</option>
+                        <option value="168">1 week</option>
+                    </select>
+                </div>
+                <button type="submit">Generate Playback URL</button>
+            </form>
+            <div id="playbackOutput" class="output" style="display: none;"></div>
+        </div>
+
+        <!-- Test Audio Recording -->
+        <div class="section">
+            <h2><span class="emoji">🎤</span> Browser Audio Recording</h2>
+            <div style="margin-bottom: 15px;">
+                <button id="startAudioRecord">Start Audio Recording</button>
+                <button id="stopAudioRecord" disabled>Stop Audio Recording</button>
+            </div>
+            <div id="audioControls" style="display: none;">
+                <audio id="audioPlayback" controls style="width: 100%; margin: 10px 0;"></audio>
+                <button id="useRecordedAudio">Use This Audio for Stop Recording</button>
+            </div>
+            <div id="audioOutput" class="output" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';  // Adjust if your API runs on different port
+        let currentSessionId = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        
+        // Utility function to make API calls
+        async function callAPI(endpoint, data) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                throw error;
+            }
+        }
+
+        // Display output in a formatted way
+        function displayOutput(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `output ${isError ? 'error' : 'success'}`;
+            element.textContent = JSON.stringify(data, null, 2);
+        }
+
+        // Start Recording Form
+        document.getElementById('startRecordingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const eventId = document.getElementById('eventId').value.trim();
+            const teamName = document.getElementById('teamName').value.trim();
+            const pitchTitle = document.getElementById('pitchTitle').value.trim();
+            
+            const payload = {
+                tool: 'pitches.start_recording',
+                arguments: {
+                    team_name: teamName,
+                    pitch_title: pitchTitle
+                }
+            };
+            
+            if (eventId) {
+                payload.arguments.event_id = eventId;
+            }
+            
+            try {
+                const result = await callAPI('/mcp/execute', payload);
+                displayOutput('startOutput', result, 'error' in result);
+                
+                if (result.session_id) {
+                    currentSessionId = result.session_id;
+                    document.getElementById('stopSessionId').value = result.session_id;
+                    document.getElementById('playbackSessionId').value = result.session_id;
+                    showCurrentSession(result);
+                }
+            } catch (error) {
+                displayOutput('startOutput', { error: error.message }, true);
+            }
+        });
+
+        // Show current session info
+        function showCurrentSession(sessionData) {
+            const section = document.getElementById('currentSessionSection');
+            const info = document.getElementById('sessionInfo');
+            
+            section.style.display = 'block';
+            info.innerHTML = `
+                <strong>Session ID:</strong> ${sessionData.session_id || 'Unknown'}<br>
+                <strong>Team:</strong> ${sessionData.team_name || 'Unknown'}<br>
+                <strong>Pitch:</strong> ${sessionData.pitch_title || 'Unknown'}<br>
+                <strong>Status:</strong> <span class="status-badge status-${sessionData.status}">${sessionData.status || 'Unknown'}</span><br>
+                <strong>Event:</strong> ${sessionData.event_name || sessionData.event_id || 'Unknown'}
+            `;
+        }
+
+        // Get Session Details
+        document.getElementById('getSessionDetails').addEventListener('click', async () => {
+            if (!currentSessionId) return;
+            
+            try {
+                const result = await callAPI('/mcp/execute', {
+                    tool: 'pitches.get_session',
+                    arguments: { session_id: currentSessionId }
+                });
+                displayOutput('sessionOutput', result, 'error' in result);
+                
+                if (!('error' in result)) {
+                    showCurrentSession(result);
+                }
+            } catch (error) {
+                displayOutput('sessionOutput', { error: error.message }, true);
+            }
+        });
+
+        // Stop Current Recording
+        document.getElementById('stopRecording').addEventListener('click', async () => {
+            if (!currentSessionId) return;
+            
+            try {
+                const result = await callAPI('/mcp/execute', {
+                    tool: 'pitches.stop_recording',
+                    arguments: { session_id: currentSessionId }
+                });
+                displayOutput('sessionOutput', result, 'error' in result);
+                
+                if (result.status === 'completed') {
+                    currentSessionId = null;
+                    document.getElementById('currentSessionSection').style.display = 'none';
+                }
+            } catch (error) {
+                displayOutput('sessionOutput', { error: error.message }, true);
+            }
+        });
+
+        // Stop Recording Form
+        document.getElementById('stopRecordingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const sessionId = document.getElementById('stopSessionId').value.trim();
+            const audioData = document.getElementById('audioData').value.trim();
+            
+            const payload = {
+                tool: 'pitches.stop_recording',
+                arguments: { session_id: sessionId }
+            };
+            
+            if (audioData) {
+                payload.arguments.audio_data_base64 = audioData;
+            }
+            
+            try {
+                const result = await callAPI('/mcp/execute', payload);
+                displayOutput('stopOutput', result, 'error' in result);
+            } catch (error) {
+                displayOutput('stopOutput', { error: error.message }, true);
+            }
+        });
+
+        // List Sessions
+        async function listSessions() {
+            const eventFilter = document.getElementById('filterEvent').value.trim();
+            
+            const payload = {
+                tool: 'pitches.list_sessions',
+                arguments: {}
+            };
+            
+            if (eventFilter) {
+                payload.arguments.event_id = eventFilter;
+            }
+            
+            try {
+                const result = await callAPI('/mcp/execute', payload);
+                displayOutput('listOutput', result, 'error' in result);
+                
+                if (result.sessions) {
+                    displaySessionList(result.sessions);
+                }
+            } catch (error) {
+                displayOutput('listOutput', { error: error.message }, true);
+            }
+        }
+
+        document.getElementById('listSessions').addEventListener('click', listSessions);
+        document.getElementById('refreshSessions').addEventListener('click', listSessions);
+
+        // Display session list
+        function displaySessionList(sessions) {
+            const container = document.getElementById('sessionsList');
+            
+            if (sessions.length === 0) {
+                container.innerHTML = '<p>No sessions found.</p>';
+                return;
+            }
+            
+            container.innerHTML = sessions.map(session => `
+                <div class="session-item">
+                    <div class="info">
+                        <strong>${session.team_name}</strong> - ${session.pitch_title}<br>
+                        <small>ID: ${session.session_id}</small><br>
+                        <span class="status-badge status-${session.status}">${session.status}</span>
+                        ${session.has_audio ? ' 🎵' : ''}
+                    </div>
+                    <div class="actions">
+                        <button onclick="getSessionDetails('${session.session_id}')">Details</button>
+                        ${session.has_audio ? `<button onclick="getPlaybackUrl('${session.session_id}')">Play</button>` : ''}
+                        <button onclick="deleteSession('${session.session_id}')" style="background-color: #dc3545;">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Session actions
+        async function getSessionDetails(sessionId) {
+            try {
+                const result = await callAPI('/mcp/execute', {
+                    tool: 'pitches.get_session',
+                    arguments: { session_id: sessionId }
+                });
+                displayOutput('listOutput', result, 'error' in result);
+            } catch (error) {
+                displayOutput('listOutput', { error: error.message }, true);
+            }
+        }
+
+        async function getPlaybackUrl(sessionId) {
+            try {
+                const result = await callAPI('/mcp/execute', {
+                    tool: 'pitches.get_playback_url',
+                    arguments: { session_id: sessionId, expires_hours: 1 }
+                });
+                
+                if (result.playback_url) {
+                    window.open(result.playback_url, '_blank');
+                }
+                displayOutput('listOutput', result, 'error' in result);
+            } catch (error) {
+                displayOutput('listOutput', { error: error.message }, true);
+            }
+        }
+
+        async function deleteSession(sessionId) {
+            if (!confirm(`Are you sure you want to delete session ${sessionId}?`)) return;
+            
+            try {
+                const result = await callAPI('/mcp/execute', {
+                    tool: 'pitches.delete_session',
+                    arguments: { session_id: sessionId }
+                });
+                displayOutput('listOutput', result, 'error' in result);
+                
+                if (result.deleted) {
+                    listSessions(); // Refresh the list
+                }
+            } catch (error) {
+                displayOutput('listOutput', { error: error.message }, true);
+            }
+        }
+
+        // Playback URL Form
+        document.getElementById('playbackForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const sessionId = document.getElementById('playbackSessionId').value.trim();
+            const expiresHours = parseInt(document.getElementById('expiresHours').value);
+            
+            try {
+                const result = await callAPI('/mcp/execute', {
+                    tool: 'pitches.get_playback_url',
+                    arguments: { 
+                        session_id: sessionId,
+                        expires_hours: expiresHours
+                    }
+                });
+                displayOutput('playbackOutput', result, 'error' in result);
+                
+                if (result.playback_url) {
+                    // Add clickable link
+                    const output = document.getElementById('playbackOutput');
+                    output.innerHTML += `\n\n<a href="${result.playback_url}" target="_blank" style="color: #007aff;">🔗 Open Audio File</a>`;
+                }
+            } catch (error) {
+                displayOutput('playbackOutput', { error: error.message }, true);
+            }
+        });
+
+        // Browser Audio Recording
+        document.getElementById('startAudioRecord').addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    
+                    document.getElementById('audioPlayback').src = audioUrl;
+                    document.getElementById('audioControls').style.display = 'block';
+                    
+                    // Convert to base64 for API
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const base64 = reader.result.split(',')[1];
+                        document.getElementById('audioData').value = base64;
+                    };
+                    reader.readAsDataURL(audioBlob);
+                };
+                
+                mediaRecorder.start();
+                document.getElementById('startAudioRecord').disabled = true;
+                document.getElementById('stopAudioRecord').disabled = false;
+                displayOutput('audioOutput', { status: 'Recording started...' });
+                
+            } catch (error) {
+                displayOutput('audioOutput', { error: 'Failed to start recording: ' + error.message }, true);
+            }
+        });
+
+        document.getElementById('stopAudioRecord').addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                
+                document.getElementById('startAudioRecord').disabled = false;
+                document.getElementById('stopAudioRecord').disabled = true;
+                displayOutput('audioOutput', { status: 'Recording stopped. Audio ready for use.' });
+            }
+        });
+
+        document.getElementById('useRecordedAudio').addEventListener('click', () => {
+            const audioData = document.getElementById('audioData').value;
+            if (audioData) {
+                alert('Audio data copied to Stop Recording form!');
+            } else {
+                alert('No audio data available. Please record audio first.');
+            }
+        });
+
+        // Load sessions on page load
+        window.addEventListener('load', () => {
+            listSessions();
+        });
+    </script>
+</body>
+</html>

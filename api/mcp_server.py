@@ -45,6 +45,7 @@ from domains.events.mcp.events_mcp_tools import execute_events_mcp_tool, EVENTS_
 from domains.recordings.mcp.mcp_tools import execute_mcp_tool as execute_recordings_tool, MCP_TOOLS as RECORDINGS_MCP_TOOLS
 from domains.scoring.mcp.scoring_mcp_tools import execute_scoring_mcp_tool, SCORING_MCP_TOOLS
 from domains.chat.mcp.chat_mcp_tools import execute_chat_mcp_tool, CHAT_MCP_TOOLS
+from domains.market.mcp.market_mcp_tools import execute_market_mcp_tool, MARKET_MCP_TOOLS
 
 
 # Set up logging
@@ -87,6 +88,10 @@ class PitchScoopMCPServer:
             # Chat domain tools
             **{name: {"domain": "chat", "executor": execute_chat_mcp_tool, "config": config}
                for name, config in CHAT_MCP_TOOLS.items()},
+            
+            # Market domain tools
+            **{name: {"domain": "market", "executor": execute_market_mcp_tool, "config": config}
+               for name, config in MARKET_MCP_TOOLS.items()},
         }
         
         logger.info(f"PitchScoop MCP server initialized with {len(self.tool_registry)} tools")

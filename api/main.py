@@ -14,6 +14,7 @@ try:
     from domains.events.mcp.events_mcp_tools import EVENTS_MCP_TOOLS
     from domains.events.mcp.events_mcp_handler import events_mcp_handler
     from domains.users.mcp.users_mcp_tools import USERS_TOOLS, handle_users_tool_call
+    from domains.scoring.mcp.scoring_mcp_tools import SCORING_MCP_TOOLS, execute_scoring_mcp_tool
     
     async def execute_events_tool(tool_name, args):
         """Execute events MCP tool."""
@@ -49,6 +50,9 @@ try:
         # Try users domain
         elif tool.startswith('users.'):
             return await handle_users_tool_call(tool, args)
+        # Try scoring domain
+        elif tool.startswith('analysis.'):
+            return await execute_scoring_mcp_tool(tool, args)
         else:
             return {"error": f"Unknown tool: {tool}"}
     
@@ -57,6 +61,7 @@ try:
         tools.extend(recordings_tools())
         tools.extend(list(EVENTS_MCP_TOOLS.keys()))
         tools.extend([tool["name"] for tool in USERS_TOOLS])
+        tools.extend(list(SCORING_MCP_TOOLS.keys()))
         return tools
         
 except ImportError as e:
@@ -209,8 +214,57 @@ async def mcp_execute(request: MCPExecuteRequest):
         return {"error": str(e)}
 
 
+# Scoring endpoints
+@app.get("/api/sessions")
+async def list_sessions():
+    """List all recording sessions"""
+    try:
+        result = await execute_mcp_tool("pitches.list_sessions", {})
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/sessions/{session_id}/scoring")
+async def get_presentation_scoring(session_id: str, event_id: str = Query(...)):
+    """Get presentation delivery scoring for a session"""
+    try:
+        # Import our audio-integrated scoring tools
+        from domains.scoring.mcp.scoring_mcp_tools_audio_integrated import execute_audio_integrated_scoring_mcp_tool
+        
+        result = await execute_audio_integrated_scoring_mcp_tool(
+            "analysis.analyze_presentation_delivery",
+            {
+                "session_id": session_id,
+                "event_id": event_id,
+                "include_audio_metrics": True,
+                "benchmark_wpm": 150
+            }
+        )
+        return result
+    except Exception as e:
+        return {"error": str(e), "details": "Make sure the session exists and has transcript data"}
+
+@app.get("/api/sessions/{session_id}/audio-intelligence")
+async def get_audio_intelligence(session_id: str):
+    """Get audio intelligence for a session"""
+    try:
+        result = await execute_mcp_tool("pitches.get_audio_intelligence", {"session_id": session_id})
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+
 # Serve static files (including our test HTML)
 @app.get("/test")
 async def serve_test_page():
     from fastapi.responses import FileResponse
     return FileResponse("test_recording.html")
+
+@app.get("/interface")
+async def serve_interface_page():
+    from fastapi.responses import FileResponse
+    return FileResponse("test_interface.html")
+
+@app.get("/scoring")
+async def serve_scoring_page():
+    from fastapi.responses import FileResponse
+    return FileResponse("scoring_interface.html")

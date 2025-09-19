@@ -39,7 +39,8 @@ class TestMCPToolsRegistry:
             "pitches.get_session",
             "pitches.get_playback_url",
             "pitches.list_sessions",
-            "pitches.delete_session"
+            "pitches.delete_session",
+            "pitches.get_audio_intelligence"
         ]
         
         available_tools = list_available_tools()

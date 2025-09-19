@@ -16,8 +16,8 @@ Missing environment variables in `.env` file that were referenced in `docker-com
 
 ## 🛠️ What Was Wrong
 
-### Missing Variables in `.env`:
-1. `SYSTEM_LLM_AZURE_EMBEDDING_DEPLOYMENT` - Referenced in docker-compose.yml but missing from .env
+### Missing Variables:
+1. `SYSTEM_LLM_AZURE_EMBEDDING_DEPLOYMENT` - Referenced in docker-compose.yml but not needed
 2. `BRIGHT_DATA_BASE_URL` - Referenced in docker-compose.yml but missing from .env  
 3. `BRIGHT_DATA_RATE_LIMIT` - Referenced in docker-compose.yml but missing from .env
 
@@ -30,11 +30,12 @@ WARN[0000] The "BRIGHT_DATA_RATE_LIMIT" variable is not set. Defaulting to a bla
 
 ## ✅ Solution Applied
 
-### Added Missing Variables to `.env`:
-```bash
-# Azure OpenAI Embedding Model
-SYSTEM_LLM_AZURE_EMBEDDING_DEPLOYMENT=text-embedding-ada-002
+### Solution Applied:
+1. **Removed unused variable** from docker-compose.yml:
+   - Removed `SYSTEM_LLM_AZURE_EMBEDDING_DEPLOYMENT` (not needed)
 
+2. **Added missing variables** to `.env`:
+```bash
 # BrightData Configuration  
 BRIGHT_DATA_BASE_URL=https://brightdata.com/api/v1
 BRIGHT_DATA_RATE_LIMIT=100
@@ -105,7 +106,7 @@ docker compose exec api env | grep YOUR_VARS
 ## 📊 Current Status
 
 ### ✅ All Environment Variables Loading:
-- `SYSTEM_LLM_AZURE_*` - All 5 variables loaded
+- `SYSTEM_LLM_AZURE_*` - All 4 needed variables loaded (removed unused embedding deployment)
 - `BRIGHT_DATA_*` - All 3 variables loaded  
 - `GLADIA_*` - Both variables loaded
 - `REDIS_URL` - Loaded

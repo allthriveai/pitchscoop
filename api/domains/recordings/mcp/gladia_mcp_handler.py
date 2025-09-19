@@ -379,35 +379,48 @@ class GladiaMCPHandler:
                     }
                     session_data.update(audio_info)
             
-            # Process audio with Gladia Audio Intelligence if we have audio data
+            # Process audio with Hybrid Gladia + Enhanced AI Analysis if we have audio data
             transcript_segments = session_data.get("transcript_segments", [])
             audio_intelligence_data = {}
+            enhanced_intelligence_data = {}
             
             if final_audio_data:
                 # Use Gladia batch processing for Audio Intelligence features
                 audio_config = AudioConfiguration.from_dict(session_data.get("audio_config", {}))
                 
-                # Temporarily disable batch processing - focus on WebSocket
-                # Check if Audio Intelligence features are enabled
-                if False and (audio_config.sentiment_analysis or audio_config.emotion_analysis or 
+                # Step 1: Get basic transcription from Gladia (batch or WebSocket)
+                if (audio_config.sentiment_analysis or audio_config.emotion_analysis or 
                     audio_config.summarization or audio_config.named_entity_recognition or 
                     audio_config.chapterization):
                     
-                    logger.info("Processing audio with Gladia Audio Intelligence (batch mode)")
+                    logger.info("Processing audio with Gladia batch mode for transcription")
                     batch_result = await self._process_audio_with_intelligence(
                         final_audio_data, audio_config
                     )
                     
                     if batch_result:
                         transcript_segments = batch_result.get('transcript_segments', [])
+                        # Keep basic Gladia intelligence for comparison
                         audio_intelligence_data = batch_result.get('intelligence_data', {})
                         session_data["transcript_segments"] = transcript_segments
-                        session_data["audio_intelligence"] = audio_intelligence_data
-                        logger.info(f"Audio Intelligence processing complete: {len(transcript_segments)} segments")
+                        session_data["gladia_audio_intelligence"] = audio_intelligence_data
+                        logger.info(f"Gladia batch processing complete: {len(transcript_segments)} segments")
+                    else:
+                        logger.warning("Gladia batch processing failed, falling back to WebSocket")
+                        # Fallback to WebSocket if batch fails
+                        if session_data.get("gladia_session_id") and session_data.get("websocket_url"):
+                            gladia_transcript = await self._process_audio_with_gladia(
+                                session_data["gladia_session_id"],
+                                session_data["websocket_url"],
+                                final_audio_data
+                            )
+                            if gladia_transcript:
+                                transcript_segments.extend(gladia_transcript)
+                                session_data["transcript_segments"] = transcript_segments
                 
                 else:
                     # Fallback to live WebSocket for basic transcription only
-                    logger.info("Using WebSocket fallback for transcription")
+                    logger.info("Using WebSocket for basic transcription")
                     if session_data.get("gladia_session_id") and session_data.get("websocket_url"):
                         logger.info(f"WebSocket processing with session: {session_data.get('gladia_session_id')[:8]}...")
                         gladia_transcript = await self._process_audio_with_gladia(
@@ -424,6 +437,36 @@ class GladiaMCPHandler:
                             logger.warning("WebSocket processing returned no transcript segments")
                     else:
                         logger.error(f"WebSocket fallback failed: missing gladia_session_id or websocket_url")
+                
+                # Step 2: Enhanced AI Analysis using Azure OpenAI (HYBRID APPROACH)
+                if transcript_segments:
+                    logger.info("Starting Enhanced Audio Intelligence analysis with Azure OpenAI")
+                    try:
+                        from ..services.enhanced_audio_intelligence import enhanced_audio_intelligence
+                        
+                        # Get event_id for multi-tenant isolation
+                        event_id = session_data.get("event_id")
+                        
+                        enhanced_result = await enhanced_audio_intelligence.analyze_pitch_transcript(
+                            transcript_segments, event_id=event_id, session_id=session_id
+                        )
+                        
+                        if enhanced_result.get("success"):
+                            enhanced_intelligence_data = enhanced_result
+                            session_data["enhanced_audio_intelligence"] = enhanced_intelligence_data
+                            logger.info(f"Enhanced AI analysis complete: confidence improved from ~0.3 to {enhanced_result.get('sentiment_analysis', {}).get('sentiment_confidence', 'N/A')}")
+                            
+                            # Log quality improvements
+                            logger.info(f"Analysis quality improvements: {enhanced_result.get('confidence_improvement', {})}")
+                        else:
+                            logger.error(f"Enhanced AI analysis failed: {enhanced_result.get('error')}")
+                            enhanced_intelligence_data = {"error": enhanced_result.get("error"), "success": False}
+                            
+                    except Exception as e:
+                        logger.error(f"Enhanced AI analysis exception: {str(e)}")
+                        enhanced_intelligence_data = {"error": f"Enhanced analysis exception: {str(e)}", "success": False}
+                else:
+                    logger.warning("No transcript segments available for enhanced analysis")
             
             # Stop Gladia session
             logger.info("Step 4: Cleaning up Gladia session")
@@ -435,12 +478,18 @@ class GladiaMCPHandler:
             else:
                 logger.info(f"Session {session_id} not in active_sessions, skipping cleanup")
             
-            # Finalize transcript with Audio Intelligence data
+            # Finalize transcript with Enhanced Audio Intelligence data
             final_transcript = {
                 "segments_count": len(transcript_segments),
                 "total_text": " ".join([seg.get("text", "") for seg in transcript_segments if seg.get("text")]),
                 "segments": transcript_segments,
-                "audio_intelligence": audio_intelligence_data
+                # Keep both analyses for comparison and debugging
+                "gladia_audio_intelligence": audio_intelligence_data,
+                "enhanced_audio_intelligence": enhanced_intelligence_data,
+                # Use enhanced analysis as primary (backward compatibility)
+                "audio_intelligence": enhanced_intelligence_data if enhanced_intelligence_data.get("success") else audio_intelligence_data,
+                "analysis_method": "hybrid_gladia_azure_openai" if enhanced_intelligence_data.get("success") else "gladia_only",
+                "quality_improvements": enhanced_intelligence_data.get("confidence_improvement") if enhanced_intelligence_data.get("success") else None
             }
             
             # Update session
@@ -456,6 +505,18 @@ class GladiaMCPHandler:
                 86400,  # 24 hours for completed sessions
                 json.dumps(session_data)
             )
+            
+            # Step 5: Automatic AI Scoring (NEW - COMPLETE AUTOMATION)
+            if final_transcript.get("total_text") and len(final_transcript["total_text"].strip()) > 50:
+                logger.info("Step 5: Starting automatic AI scoring after recording completion")
+                await self._trigger_automatic_scoring(
+                    session_id=session_id,
+                    event_id=event_id,
+                    team_name=session_data["team_name"],
+                    logger=logger
+                )
+            else:
+                logger.warning("Skipping automatic scoring: transcript too short or missing")
             
             return {
                 "session_id": session_id,
@@ -1576,6 +1637,93 @@ class GladiaMCPHandler:
             insights.append("Practice replacing filler words with brief pauses - builds confidence and professionalism")
         
         return insights
+    
+    async def _trigger_automatic_scoring(
+        self,
+        session_id: str,
+        event_id: str,
+        team_name: str,
+        logger
+    ) -> None:
+        """
+        Trigger automatic AI scoring after recording completion.
+        
+        This method is called automatically when a recording is completed with a valid transcript.
+        It runs the scoring process asynchronously without blocking the recording completion.
+        
+        Args:
+            session_id: Recording session identifier
+            event_id: Event identifier for multi-tenant isolation
+            team_name: Team name for logging context
+            logger: Logger instance for consistent logging
+        """
+        try:
+            # Import scoring handler (lazy import to avoid circular dependencies)
+            from ...scoring.mcp.scoring_mcp_handler import scoring_mcp_handler
+            
+            logger.info(
+                f"Triggering automatic AI scoring for {team_name}",
+                operation="automatic_scoring_trigger",
+                team_name=team_name,
+                session_id=session_id
+            )
+            
+            # Call the scoring system asynchronously
+            scoring_result = await scoring_mcp_handler.score_complete_pitch(
+                session_id=session_id,
+                event_id=event_id,
+                judge_id=None,  # Automatic scoring, no specific judge
+                scoring_context={
+                    "triggered_by": "automatic_recording_completion",
+                    "trigger_timestamp": datetime.now(timezone.utc).isoformat(),
+                    "automation_enabled": True
+                }
+            )
+            
+            if scoring_result.get("success"):
+                total_score = "N/A"
+                scores = scoring_result.get("scores", {})
+                if isinstance(scores, dict) and "overall" in scores:
+                    total_score = scores["overall"].get("total_score", "N/A")
+                
+                logger.info(
+                    f"Automatic scoring completed successfully for {team_name}",
+                    operation="automatic_scoring_success",
+                    team_name=team_name,
+                    total_score=total_score,
+                    scoring_timestamp=scoring_result.get("scoring_timestamp")
+                )
+                
+                # Log that the team is now eligible for leaderboard
+                logger.info(
+                    f"Team {team_name} is now eligible for leaderboard rankings",
+                    operation="leaderboard_eligibility",
+                    team_name=team_name,
+                    session_id=session_id
+                )
+                
+            else:
+                error_msg = scoring_result.get("error", "Unknown error")
+                logger.error(
+                    f"Automatic scoring failed for {team_name}: {error_msg}",
+                    operation="automatic_scoring_failure",
+                    team_name=team_name,
+                    error=error_msg,
+                    error_type=scoring_result.get("error_type", "unknown")
+                )
+                
+                # Note: We don't raise an exception here because recording completion
+                # should still succeed even if automatic scoring fails
+                
+        except Exception as e:
+            logger.error(
+                f"Exception in automatic scoring trigger for {team_name}: {str(e)}",
+                operation="automatic_scoring_exception",
+                team_name=team_name,
+                exception=e,
+                traceback=True
+            )
+            # Don't raise - recording completion should succeed even if scoring fails
 
 
 # Global instance

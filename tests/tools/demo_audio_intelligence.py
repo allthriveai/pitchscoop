@@ -28,7 +28,7 @@ async def demo_presentation_delivery_analysis():
     print()
     
     # Import the MCP tool execution function
-    from api.domains.scoring.mcp.scoring_mcp_tools import execute_scoring_mcp_tool
+    from domains.scoring.mcp.scoring_mcp_tools import execute_scoring_mcp_tool
     
     # Call the new MCP tool
     print("🔍 Calling analysis.analyze_presentation_delivery...")
@@ -111,7 +111,7 @@ async def demo_tool_discovery():
     print("\n🔍 MCP Tool Discovery:")
     print("-" * 30)
     
-    from api.domains.scoring.mcp.scoring_mcp_tools import SCORING_MCP_TOOLS
+    from domains.scoring.mcp.scoring_mcp_tools import SCORING_MCP_TOOLS
     
     # Show the new tool
     tool_name = "analysis.analyze_presentation_delivery"

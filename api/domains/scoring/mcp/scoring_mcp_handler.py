@@ -24,7 +24,7 @@ from ...shared.infrastructure.langchain_config import get_pitch_analysis_chains
 from ...shared.value_objects.llm_request import get_prompt_template, LLMRequest, LLMMessage
 from ...shared.infrastructure.azure_openai_client import get_azure_openai_client
 from ...shared.infrastructure.logging import ScoringLogger, get_logger
-from ...indexing.services.llamaindex_service import llamaindex_service
+# from ...indexing.services.llamaindex_service import llamaindex_service  # Temporarily disabled
 
 
 class ScoringMCPHandler:
@@ -225,7 +225,9 @@ class ScoringMCPHandler:
                 has_analysis=bool(scoring_result.get("analysis"))
             )
             
-            # Create scoring record
+            # Create scoring record with properly serialized analysis
+            analysis = self._serialize_scoring_analysis(scoring_result["analysis"])
+            
             scoring_record = {
                 "session_id": session_id,
                 "event_id": event_id,
@@ -233,7 +235,7 @@ class ScoringMCPHandler:
                 "team_name": team_name,
                 "pitch_title": pitch_title,
                 "scoring_timestamp": datetime.utcnow().isoformat(),
-                "analysis": scoring_result["analysis"],
+                "analysis": analysis,
                 "scoring_method": "azure_openai_langchain",
                 "scoring_context": scoring_context or {}
             }
@@ -745,16 +747,16 @@ Provide a structured comparison in JSON format:
     ) -> Dict[str, Any]:
         """
         Get RAG-enhanced scoring using indexed rubrics and comparative context.
-        
-        Args:
-            transcript_text: The pitch transcript to analyze
-            session_data: Session data including metadata
-            event_id: Event ID for multi-tenant isolation
-            scoring_context: Optional scoring context and requirements
-            
-        Returns:
-            Enhanced scoring results with contextual analysis
+        TEMPORARILY DISABLED - will fallback to LangChain scoring.
         """
+        # Temporarily disabled RAG scoring due to LlamaIndex dependency issues
+        return {
+            "success": False,
+            "error": "RAG scoring temporarily disabled - using LangChain fallback",
+            "analysis_type": "rag_disabled"
+        }
+        
+        # Original RAG code disabled below:
         logger = get_logger("scoring.rag_enhanced")
         operation = "rag_enhanced_scoring"
         
@@ -1683,6 +1685,49 @@ Provide a structured comparison in JSON format:
                     "event_id": event_id,
                     "success": False
                 }
+
+    def _serialize_scoring_analysis(self, analysis: Any) -> Dict[str, Any]:
+        """
+        Convert LangChain scoring result to JSON-serializable dictionary.
+        
+        Args:
+            analysis: LangChain scoring result (may contain PitchScoreOutput objects)
+            
+        Returns:
+            JSON-serializable dictionary with structured scores
+        """
+        if isinstance(analysis, dict):
+            # Handle dictionary with potential PitchScoreOutput objects
+            result = {}
+            for key, value in analysis.items():
+                if key == 'text' and hasattr(value, '__dict__'):  # LangChain PitchScoreOutput object
+                    # Extract structured scores from PitchScoreOutput
+                    if hasattr(value, 'dict'):
+                        structured_scores = value.dict()  # Pydantic model
+                    else:
+                        structured_scores = value.__dict__  # Regular object
+                    
+                    # Merge structured scores into result (this is the main scoring data)
+                    result.update(structured_scores)
+                elif hasattr(value, '__dict__'):  # Other LangChain objects
+                    if hasattr(value, 'dict'):
+                        result[key] = value.dict()  # Pydantic model
+                    else:
+                        result[key] = value.__dict__  # Regular object
+                elif isinstance(value, dict):
+                    result[key] = self._serialize_scoring_analysis(value)  # Recursive
+                elif isinstance(value, list):
+                    result[key] = [self._serialize_scoring_analysis(item) if hasattr(item, '__dict__') else item for item in value]
+                else:
+                    result[key] = value  # Already serializable
+            return result
+        elif hasattr(analysis, '__dict__'):  # LangChain object
+            if hasattr(analysis, 'dict'):
+                return analysis.dict()  # Pydantic model
+            else:
+                return analysis.__dict__  # Regular object
+        else:
+            return analysis  # Already serializable
 
 
 # Global instance

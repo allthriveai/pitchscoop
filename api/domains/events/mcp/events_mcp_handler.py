@@ -65,8 +65,8 @@ class EventsMCPHandler:
             Created event information
         """
         try:
-            # Generate event ID
-            event_id = str(uuid.uuid4())
+            # DEMO: Hardcode event ID to mcp-hackathon for today's demo
+            event_id = "mcp-hackathon"
             
             # Set default event config based on type
             default_configs = {

@@ -1,0 +1,276 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PitchScoop Scoring API Response Schema",
+  "description": "Complete schema for scoring API responses",
+  
+  "definitions": {
+    "CriterionScore": {
+      "type": "object",
+      "properties": {
+        "score": {"type": "number", "minimum": 0, "maximum": 25},
+        "max_score": {"type": "number", "const": 25},
+        "strengths": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 0
+        },
+        "areas_of_improvement": {
+          "type": "array", 
+          "items": {"type": "string"},
+          "minItems": 0
+        }
+      },
+      "required": ["score", "max_score", "strengths", "areas_of_improvement"]
+    },
+    
+    "IdeaScore": {
+      "allOf": [
+        {"$ref": "#/definitions/CriterionScore"},
+        {
+          "properties": {
+            "unique_value_proposition": {"type": "string"},
+            "vertical_focus": {"type": "string"},
+            "reasoning_capabilities": {"type": "string"},
+            "action_capabilities": {"type": "string"},
+            "tool_integration": {"type": "string"}
+          },
+          "required": [
+            "unique_value_proposition", 
+            "vertical_focus", 
+            "reasoning_capabilities", 
+            "action_capabilities", 
+            "tool_integration"
+          ]
+        }
+      ]
+    },
+    
+    "TechnicalScore": {
+      "allOf": [
+        {"$ref": "#/definitions/CriterionScore"},
+        {
+          "properties": {
+            "novel_tool_use": {"type": "string"},
+            "technical_sophistication": {"type": "string"},
+            "surprise_factor": {"type": "string"},
+            "implementation_quality": {"type": "string"}
+          },
+          "required": [
+            "novel_tool_use", 
+            "technical_sophistication", 
+            "surprise_factor", 
+            "implementation_quality"
+          ]
+        }
+      ]
+    },
+    
+    "ToolUseScore": {
+      "allOf": [
+        {"$ref": "#/definitions/CriterionScore"},
+        {
+          "properties": {
+            "sponsor_tools_used": {
+              "type": "array",
+              "items": {"type": "string"},
+              "minItems": 0
+            },
+            "tool_count": {"type": "integer", "minimum": 0},
+            "integration_quality": {"type": "string"},
+            "agentic_behavior": {"type": "string"},
+            "tool_synergy": {"type": "string"}
+          },
+          "required": [
+            "sponsor_tools_used", 
+            "tool_count", 
+            "integration_quality", 
+            "agentic_behavior", 
+            "tool_synergy"
+          ]
+        }
+      ]
+    },
+    
+    "PresentationScore": {
+      "allOf": [
+        {"$ref": "#/definitions/CriterionScore"},
+        {
+          "properties": {
+            "demo_clarity": {"type": "string"},
+            "impact_demonstration": {"type": "string"},
+            "time_management": {"type": "string"},
+            "delivery_quality": {"type": "string"},
+            "agent_impact_shown": {"type": "string"}
+          },
+          "required": [
+            "demo_clarity", 
+            "impact_demonstration", 
+            "time_management", 
+            "delivery_quality", 
+            "agent_impact_shown"
+          ]
+        }
+      ]
+    },
+    
+    "OverallScore": {
+      "type": "object",
+      "properties": {
+        "total_score": {"type": "number", "minimum": 0, "maximum": 100},
+        "max_total": {"type": "number", "const": 100},
+        "percentage": {"type": "number", "minimum": 0, "maximum": 100},
+        "ranking_tier": {
+          "type": "string",
+          "enum": ["excellent", "very_good", "good", "needs_improvement"]
+        },
+        "standout_features": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 0
+        },
+        "critical_improvements": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 0
+        },
+        "judge_recommendation": {"type": "string"}
+      },
+      "required": [
+        "total_score", 
+        "max_total", 
+        "percentage", 
+        "ranking_tier", 
+        "standout_features", 
+        "critical_improvements", 
+        "judge_recommendation"
+      ]
+    }
+  },
+  
+  "type": "object",
+  "properties": {
+    "session_id": {"type": "string"},
+    "event_id": {"type": "string"},
+    "judge_id": {"type": "string"},
+    "team_name": {"type": "string"},
+    "pitch_title": {"type": "string"},
+    "scores": {
+      "type": "object",
+      "properties": {
+        "idea": {"$ref": "#/definitions/IdeaScore"},
+        "technical_implementation": {"$ref": "#/definitions/TechnicalScore"},
+        "tool_use": {"$ref": "#/definitions/ToolUseScore"},
+        "presentation_delivery": {"$ref": "#/definitions/PresentationScore"},
+        "overall": {"$ref": "#/definitions/OverallScore"}
+      },
+      "required": ["idea", "technical_implementation", "tool_use", "presentation_delivery", "overall"]
+    },
+    "scoring_timestamp": {"type": "string", "format": "date-time"},
+    "success": {"type": "boolean", "const": true}
+  },
+  "required": [
+    "session_id",
+    "event_id", 
+    "team_name",
+    "pitch_title",
+    "scores",
+    "scoring_timestamp",
+    "success"
+  ],
+  
+  "examples": [
+    {
+      "session_id": "demo-session-123",
+      "event_id": "demo-event-456",
+      "judge_id": "judge-789",
+      "team_name": "Demo Team",
+      "pitch_title": "AI Document Analysis Agent",
+      "scores": {
+        "idea": {
+          "score": 22.5,
+          "max_score": 25,
+          "unique_value_proposition": "Document quality analysis with AI reasoning",
+          "vertical_focus": "Enterprise document management",
+          "reasoning_capabilities": "Advanced NLP analysis of document structure",
+          "action_capabilities": "Automated issue detection and report generation",
+          "tool_integration": "Seamless OpenAI, Qdrant, MinIO pipeline",
+          "strengths": [
+            "Clear value proposition for enterprise market",
+            "Specific vertical focus on document quality"
+          ],
+          "areas_of_improvement": [
+            "More details on reasoning sophistication needed",
+            "Expand on competitive advantages"
+          ]
+        },
+        "technical_implementation": {
+          "score": 20.0,
+          "max_score": 25,
+          "novel_tool_use": "Multi-stage document processing pipeline",
+          "technical_sophistication": "Good integration architecture",
+          "surprise_factor": "Innovative document quality metrics",
+          "implementation_quality": "Clean tool integration approach",
+          "strengths": [
+            "Multi-tool integration shows technical depth",
+            "Clear architectural thinking"
+          ],
+          "areas_of_improvement": [
+            "More technical implementation details",
+            "Demonstrate more novel tool usage patterns"
+          ]
+        },
+        "tool_use": {
+          "score": 23.0,
+          "max_score": 25,
+          "sponsor_tools_used": ["OpenAI", "Qdrant", "MinIO"],
+          "tool_count": 3,
+          "integration_quality": "Well-integrated tool stack with clear purpose",
+          "agentic_behavior": "Document analysis, quality assessment, report generation",
+          "tool_synergy": "Tools complement each other for complete workflow",
+          "strengths": [
+            "Meets 3+ sponsor tool requirement",
+            "Clear synergy between tool choices"
+          ],
+          "areas_of_improvement": [
+            "Could demonstrate more sophisticated agentic behaviors",
+            "Show more tool interaction complexity"
+          ]
+        },
+        "presentation_delivery": {
+          "score": 21.0,
+          "max_score": 25,
+          "demo_clarity": "Clear explanation of agent capabilities and workflow",
+          "impact_demonstration": "Good explanation of business impact",
+          "time_management": "Stayed within 3-minute limit effectively",
+          "delivery_quality": "Professional presentation style",
+          "agent_impact_shown": "Clear demonstration of value proposition",
+          "strengths": [
+            "Clear and professional delivery",
+            "Good time management"
+          ],
+          "areas_of_improvement": [
+            "More interactive live demo elements",
+            "Show real-time agent actions"
+          ]
+        },
+        "overall": {
+          "total_score": 86.5,
+          "max_total": 100,
+          "percentage": 86.5,
+          "ranking_tier": "very_good",
+          "standout_features": [
+            "Strong tool integration strategy",
+            "Clear enterprise value proposition"
+          ],
+          "critical_improvements": [
+            "Enhanced technical depth demonstration",
+            "More sophisticated agentic behavior showcase"
+          ],
+          "judge_recommendation": "Excellent foundation with clear market focus. Strengthen technical demonstration and show more complex agent behaviors to reach top tier."
+        }
+      },
+      "scoring_timestamp": "2024-01-15T10:05:00Z",
+      "success": true
+    }
+  ]
+}

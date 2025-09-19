@@ -388,12 +388,32 @@ class GladiaMCPHandler:
                 # Use Gladia batch processing for Audio Intelligence features
                 audio_config = AudioConfiguration.from_dict(session_data.get("audio_config", {}))
                 
-                # Step 1: Get basic transcription from Gladia (batch or WebSocket)
-                if (audio_config.sentiment_analysis or audio_config.emotion_analysis or 
-                    audio_config.summarization or audio_config.named_entity_recognition or 
-                    audio_config.chapterization):
+                # Always try WebSocket first for better reliability with microphone audio
+                logger.info("Processing microphone audio with Gladia WebSocket (primary method)")
+                if session_data.get("gladia_session_id") and session_data.get("websocket_url"):
+                    logger.info(f"WebSocket processing with session: {session_data.get('gladia_session_id')[:8]}...")
+                    gladia_transcript = await self._process_audio_with_gladia(
+                        session_data["gladia_session_id"],
+                        session_data["websocket_url"],
+                        final_audio_data
+                    )
                     
-                    logger.info("Processing audio with Gladia batch mode for transcription")
+                    if gladia_transcript:
+                        logger.info(f"WebSocket returned {len(gladia_transcript)} transcript segments")
+                        transcript_segments.extend(gladia_transcript)
+                        session_data["transcript_segments"] = transcript_segments
+                    else:
+                        logger.warning("WebSocket processing returned no transcript segments")
+                else:
+                    logger.error(f"WebSocket processing failed: missing gladia_session_id or websocket_url")
+                
+                # Only try batch processing if WebSocket failed AND we have AI features enabled
+                if (not transcript_segments and 
+                    (audio_config.sentiment_analysis or audio_config.emotion_analysis or 
+                     audio_config.summarization or audio_config.named_entity_recognition or 
+                     audio_config.chapterization)):
+                    
+                    logger.info("WebSocket failed, trying Gladia batch mode for Audio Intelligence")
                     batch_result = await self._process_audio_with_intelligence(
                         final_audio_data, audio_config
                     )
@@ -406,37 +426,7 @@ class GladiaMCPHandler:
                         session_data["gladia_audio_intelligence"] = audio_intelligence_data
                         logger.info(f"Gladia batch processing complete: {len(transcript_segments)} segments")
                     else:
-                        logger.warning("Gladia batch processing failed, falling back to WebSocket")
-                        # Fallback to WebSocket if batch fails
-                        if session_data.get("gladia_session_id") and session_data.get("websocket_url"):
-                            gladia_transcript = await self._process_audio_with_gladia(
-                                session_data["gladia_session_id"],
-                                session_data["websocket_url"],
-                                final_audio_data
-                            )
-                            if gladia_transcript:
-                                transcript_segments.extend(gladia_transcript)
-                                session_data["transcript_segments"] = transcript_segments
-                
-                else:
-                    # Fallback to live WebSocket for basic transcription only
-                    logger.info("Using WebSocket for basic transcription")
-                    if session_data.get("gladia_session_id") and session_data.get("websocket_url"):
-                        logger.info(f"WebSocket processing with session: {session_data.get('gladia_session_id')[:8]}...")
-                        gladia_transcript = await self._process_audio_with_gladia(
-                            session_data["gladia_session_id"],
-                            session_data["websocket_url"],
-                            final_audio_data
-                        )
-                        
-                        if gladia_transcript:
-                            logger.info(f"WebSocket returned {len(gladia_transcript)} transcript segments")
-                            transcript_segments.extend(gladia_transcript)
-                            session_data["transcript_segments"] = transcript_segments
-                        else:
-                            logger.warning("WebSocket processing returned no transcript segments")
-                    else:
-                        logger.error(f"WebSocket fallback failed: missing gladia_session_id or websocket_url")
+                        logger.warning("Both WebSocket and batch processing failed")
                 
                 # Step 2: Enhanced AI Analysis using Azure OpenAI (HYBRID APPROACH)
                 if transcript_segments:
@@ -1067,38 +1057,55 @@ class GladiaMCPHandler:
         
         try:
             logger.info(f"Connecting to Gladia WebSocket for transcription: {websocket_url[:50]}...")
+            logger.info(f"Audio data size: {len(audio_data)} bytes ({len(audio_data) / 1024:.1f}KB)")
             
-            async with websockets.connect(websocket_url) as websocket:
-                logger.info("Connected to Gladia WebSocket")
+            # Use ping/pong to maintain connection stability
+            async with websockets.connect(
+                websocket_url, 
+                timeout=15,
+                ping_interval=30,  # Send ping every 30 seconds
+                ping_timeout=10    # Wait 10 seconds for pong
+            ) as websocket:
+                logger.info("Connected to Gladia WebSocket with connection stability features")
                 
-                # Send audio data in chunks
-                chunk_size = 8192  # 8KB chunks
+                # Send audio data in smaller chunks for better real-time processing
+                chunk_size = 4096  # 4KB chunks (smaller for better responsiveness)
                 total_chunks = len(audio_data) // chunk_size + (1 if len(audio_data) % chunk_size else 0)
                 
-                logger.info(f"Sending {len(audio_data)} bytes in {total_chunks} chunks")
+                logger.info(f"Sending {len(audio_data)} bytes in {total_chunks} chunks of {chunk_size} bytes each")
                 
+                # Send audio chunks with realistic timing
                 for i in range(0, len(audio_data), chunk_size):
                     chunk = audio_data[i:i + chunk_size]
                     await websocket.send(chunk)
+                    logger.debug(f"Sent chunk {i // chunk_size + 1}/{total_chunks} ({len(chunk)} bytes)")
                     
-                    # Small delay to simulate real-time streaming
-                    await asyncio.sleep(0.01)
+                    # Realistic delay: 4KB at 16kHz 16-bit mono = ~125ms of audio
+                    # Send slightly faster than real-time for processing efficiency
+                    await asyncio.sleep(0.05)  # 50ms delay
+                
+                logger.info("Finished sending audio chunks, waiting before stop message...")
+                # Wait a bit before sending stop to allow processing
+                await asyncio.sleep(0.5)
                 
                 # Send stop recording message
                 stop_message = json.dumps({"type": "stop_recording"})
                 await websocket.send(stop_message)
-                logger.info("Sent stop recording message")
+                logger.info("Sent stop recording message, waiting for final transcripts...")
                 
-                # Listen for transcript messages
+                # Listen for transcript messages with improved handling for microphone audio
                 messages_received = 0
                 timeout_count = 0
-                max_messages = 50  # Prevent infinite loops
-                max_timeouts = 5   # Max consecutive timeouts
+                max_messages = 100  # Allow more messages for longer audio
+                max_timeouts = 10   # Allow more timeouts for microphone processing
+                transcript_found = False
+                
+                logger.info("Listening for transcription messages...")
                 
                 while messages_received < max_messages and timeout_count < max_timeouts:
                     try:
-                        # Wait for messages with timeout
-                        message = await asyncio.wait_for(websocket.recv(), timeout=2.0)
+                        # Wait for messages with longer timeout for microphone processing
+                        message = await asyncio.wait_for(websocket.recv(), timeout=3.0)
                         messages_received += 1
                         timeout_count = 0  # Reset timeout count on successful message
                         
@@ -1106,16 +1113,24 @@ class GladiaMCPHandler:
                             parsed_message = json.loads(message)
                             message_type = parsed_message.get('type')
                             
+                            logger.debug(f"Received Gladia message: {message_type}")
+                            
                             if message_type == 'transcript':
                                 data = parsed_message.get('data', {})
                                 utterance = data.get('utterance', {})
                                 text = utterance.get('text', '').strip()
+                                is_final = data.get('is_final', False)
+                                confidence = utterance.get('confidence', 0.0)
+                                
+                                # Log all transcript messages for debugging (even empty ones)
+                                logger.info(f"Transcript message: text='{text}', final={is_final}, confidence={confidence:.3f}")
                                 
                                 if text:  # Only process non-empty transcripts
+                                    transcript_found = True
                                     segment = {
                                         "text": text,
-                                        "confidence": utterance.get('confidence', 0.0),
-                                        "is_final": data.get('is_final', False),
+                                        "confidence": confidence,
+                                        "is_final": is_final,
                                         "start_time": utterance.get('start', 0.0),
                                         "end_time": utterance.get('end', 0.0),
                                         "channel": utterance.get('channel', 0),
@@ -1127,15 +1142,17 @@ class GladiaMCPHandler:
                                     transcript_segments.append(segment)
                                     
                                     # Enhanced logging for Audio Intelligence
-                                    log_parts = [f"'{text}' (confidence: {segment['confidence']})"]
+                                    log_parts = [f"'{text}' (confidence: {confidence:.3f})"]
                                     if segment['sentiment']:
                                         log_parts.append(f"sentiment: {segment['sentiment']}")
                                     if segment['emotion']:
                                         log_parts.append(f"emotion: {segment['emotion']}")
-                                    if segment['speaker']:
+                                    if segment['speaker'] is not None:
                                         log_parts.append(f"speaker: {segment['speaker']}")
                                     
-                                    logger.info(f"Transcript segment: {', '.join(log_parts)}")
+                                    logger.info(f"✅ Added transcript segment: {', '.join(log_parts)}")
+                                else:
+                                    logger.debug(f"Empty transcript message (final={is_final}, confidence={confidence:.3f})")
                             
                             elif message_type == 'session_ends':
                                 logger.info("Gladia session ended")
@@ -1171,7 +1188,19 @@ class GladiaMCPHandler:
                             logger.info("Max timeouts reached, ending transcription")
                             break
                 
-                logger.info(f"Transcription complete. Received {len(transcript_segments)} segments")
+                logger.info(f"WebSocket transcription complete:")
+                logger.info(f"  - Messages received: {messages_received}")
+                logger.info(f"  - Transcript segments: {len(transcript_segments)}")
+                logger.info(f"  - Transcript found: {transcript_found}")
+                logger.info(f"  - Final timeout count: {timeout_count}/{max_timeouts}")
+                
+                if transcript_segments:
+                    total_text = ' '.join([seg.get('text', '') for seg in transcript_segments if seg.get('text')])
+                    avg_confidence = sum([seg.get('confidence', 0) for seg in transcript_segments]) / len(transcript_segments)
+                    logger.info(f"  - Total text: '{total_text[:100]}{'...' if len(total_text) > 100 else ''}'")
+                    logger.info(f"  - Average confidence: {avg_confidence:.3f}")
+                else:
+                    logger.warning("  - No transcript segments generated from microphone audio")
                 
         except websockets.exceptions.ConnectionClosed as e:
             logger.warning(f"WebSocket connection closed: {e}")

@@ -75,10 +75,10 @@ class AudioConfiguration:
 
 ## Current Limitations & Issues
 
-### 1. Technical Limitations
-- **Batch API Payload Size**: 413 "request entity too large" errors due to base64 encoding overhead
-- **WebSocket AI Constraints**: Audio Intelligence features primarily designed for batch processing
-- **Size Thresholds**: Even 2-second clips (~135KB) cause batch API rejections
+### 1. Technical Limitations (RESOLVED ✅)
+- ~~**Batch API Payload Size**: 413 "request entity too large" errors due to base64 encoding overhead~~ **FIXED**: Now using proper multipart/form-data upload
+- **WebSocket AI Constraints**: Audio Intelligence features primarily designed for batch processing  
+- ~~**Size Thresholds**: Even 2-second clips (~135KB) cause batch API rejections~~ **FIXED**: Now supports up to 10MB audio files (3+ minute pitches)
 - **Fallback Quality**: WebSocket transcription produces empty segments
 
 ### 2. Analysis Quality Issues

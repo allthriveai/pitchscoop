@@ -753,7 +753,7 @@ class GladiaMCPHandler:
             return None
     
     async def _process_audio_with_intelligence(self, audio_data: bytes, config: AudioConfiguration) -> Optional[Dict[str, Any]]:
-        """Process audio with Gladia Audio Intelligence using batch API."""
+        """Process audio with Gladia Audio Intelligence using batch API with proper file upload."""
         import aiohttp
         import tempfile
         import os
@@ -768,10 +768,11 @@ class GladiaMCPHandler:
             audio_size = len(audio_data) if hasattr(audio_data, '__len__') else 0
             logger.info(f"Audio data type: {type(audio_data)}, size: {audio_size} bytes")
             
-            # Check if audio is too large for batch processing (limit to ~200KB raw audio)
-            # Base64 encoding increases size by ~33%, so 200KB -> ~267KB encoded
-            if audio_size > 200000:
-                logger.warning(f"Audio too large for batch processing ({audio_size} bytes), will use WebSocket fallback")
+            # Increase size limit now that we're using proper multipart upload instead of base64
+            # 3 minute pitch at 16kHz 16-bit mono = ~5.76MB, which should be fine
+            max_size_mb = 10  # 10MB limit for safety
+            if audio_size > max_size_mb * 1024 * 1024:
+                logger.warning(f"Audio too large for batch processing ({audio_size / (1024*1024):.1f}MB), will use WebSocket fallback")
                 return None
             
             # Ensure audio_data is bytes
@@ -791,57 +792,18 @@ class GladiaMCPHandler:
                 tmp_file.write(audio_data)
                 tmp_file_path = tmp_file.name
             
-            logger.info(f"Uploading audio to Gladia for Audio Intelligence processing: {len(audio_data)} bytes")
+            logger.info(f"Processing audio with Gladia Audio Intelligence: {audio_size / 1024:.1f}KB")
             
-            # Get Audio Intelligence configuration
-            ai_config = config.to_gladia_config(include_ai_features=True)
-            ai_config["language"] = "en"  # Can be made configurable
+            # Step 1: Upload file using proper multipart/form-data
+            audio_url = await self._upload_audio_to_gladia(tmp_file_path, api_key)
+            if not audio_url:
+                logger.error("Failed to upload audio file to Gladia")
+                return None
             
-            # Submit to Gladia batch API - try JSON approach
-            async with aiohttp.ClientSession() as session:
-                # First, try to upload file and get URL, then transcribe
-                # For now, let's try the direct transcription endpoint with JSON
-                
-                # Read audio file as base64 for JSON upload
-                with open(tmp_file_path, 'rb') as audio_file:
-                    audio_content = audio_file.read()
-                    import base64
-                    audio_base64 = base64.b64encode(audio_content).decode('utf-8')
-                
-                # Prepare JSON payload for Gladia batch API
-                # Use only supported batch API parameters
-                json_payload = {
-                    'audio_url': f"data:audio/wav;base64,{audio_base64}",
-                    'language': 'en',
-                    'sentiment_analysis': ai_config.get('sentiment_analysis', False),
-                    'summarization': ai_config.get('summarization', False),
-                    'named_entity_recognition': ai_config.get('named_entity_recognition', False),
-                    'chapterization': ai_config.get('chapterization', False)
-                }
-                
-                logger.info(f"Sending JSON payload with config keys: {list(json_payload.keys())}")
-                
-                async with session.post(
-                    "https://api.gladia.io/v2/transcription/",
-                    headers={
-                        'Content-Type': 'application/json',
-                        'X-Gladia-Key': api_key,
-                    },
-                    json=json_payload,
-                    timeout=aiohttp.ClientTimeout(total=120)  # Longer timeout for batch processing
-                ) as response:
-                        
-                        if response.status in [200, 201]:
-                            result = await response.json()
-                            result_url = result.get('result_url')
-                            
-                            if result_url:
-                                # Poll for results
-                                return await self._poll_gladia_results(result_url, api_key)
-                        else:
-                            error_text = await response.text()
-                            logger.error(f"Gladia Audio Intelligence API error {response.status}: {error_text}")
-                            return None
+            logger.info(f"Audio uploaded successfully, got URL: {audio_url[:60]}...")
+            
+            # Step 2: Submit transcription job with Audio Intelligence features
+            return await self._submit_gladia_transcription_job(audio_url, config, api_key)
             
         except Exception as e:
             logger.error(f"Error processing audio with Gladia Audio Intelligence: {e}")
@@ -853,6 +815,101 @@ class GladiaMCPHandler:
                     os.unlink(tmp_file_path)
             except Exception:
                 pass
+    
+    async def _upload_audio_to_gladia(self, file_path: str, api_key: str) -> Optional[str]:
+        """Upload audio file to Gladia using proper multipart/form-data."""
+        import aiohttp
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                with open(file_path, 'rb') as audio_file:
+                    # Create multipart form data
+                    data = aiohttp.FormData()
+                    data.add_field('audio', audio_file, filename='audio.wav', content_type='audio/wav')
+                    
+                    async with session.post(
+                        "https://api.gladia.io/v2/upload",
+                        headers={
+                            'X-Gladia-Key': api_key,
+                        },
+                        data=data,
+                        timeout=aiohttp.ClientTimeout(total=60)
+                    ) as response:
+                        
+                        if response.status in [200, 201]:
+                            result = await response.json()
+                            audio_url = result.get('audio_url')
+                            
+                            if audio_url:
+                                logger.info(f"File uploaded successfully: {result.get('audio_metadata', {}).get('filename', 'unknown')}")
+                                return audio_url
+                            else:
+                                logger.error("Upload successful but no audio_url in response")
+                                return None
+                        else:
+                            error_text = await response.text()
+                            logger.error(f"Gladia upload API error {response.status}: {error_text}")
+                            return None
+                            
+        except Exception as e:
+            logger.error(f"Error uploading audio to Gladia: {e}")
+            return None
+    
+    async def _submit_gladia_transcription_job(self, audio_url: str, config: AudioConfiguration, api_key: str) -> Optional[Dict[str, Any]]:
+        """Submit transcription job to Gladia with Audio Intelligence features."""
+        import aiohttp
+        
+        try:
+            # Get Audio Intelligence configuration
+            ai_config = config.to_gladia_config(include_ai_features=True)
+            
+            # Prepare payload for pre-recorded API
+            payload = {
+                'audio_url': audio_url,
+                'language': 'en',  # Can be made configurable
+            }
+            
+            # Add Audio Intelligence features
+            if ai_config.get('sentiment_analysis'):
+                payload['sentiment_analysis'] = True
+            if ai_config.get('summarization'):
+                payload['summarization'] = True
+            if ai_config.get('named_entity_recognition'):
+                payload['named_entity_recognition'] = True
+            if ai_config.get('chapterization'):
+                payload['chapterization'] = True
+            
+            logger.info(f"Submitting transcription job with features: {[k for k, v in payload.items() if v is True and k != 'audio_url']}")
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "https://api.gladia.io/v2/pre-recorded/",
+                    headers={
+                        'Content-Type': 'application/json',
+                        'X-Gladia-Key': api_key,
+                    },
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=120)
+                ) as response:
+                    
+                    if response.status in [200, 201]:
+                        result = await response.json()
+                        result_url = result.get('result_url')
+                        
+                        if result_url:
+                            logger.info(f"Transcription job submitted, polling for results...")
+                            return await self._poll_gladia_results(result_url, api_key)
+                        else:
+                            logger.error("Transcription job submitted but no result_url received")
+                            return None
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"Gladia pre-recorded API error {response.status}: {error_text}")
+                        return None
+                        
+        except Exception as e:
+            logger.error(f"Error submitting Gladia transcription job: {e}")
+            return None
     
     async def _poll_gladia_results(self, result_url: str, api_key: str, max_attempts: int = 30) -> Optional[Dict[str, Any]]:
         """Poll Gladia for Audio Intelligence results."""

@@ -33,8 +33,8 @@
 │  │   Handler       │  │ • OpenAPI Docs  │  │   Updates       │  │   Data Layer    │      │
 │  │ • Authentication│  │ • CORS Support  │  │ • Live Scoring  │  │ • Type Safety   │      │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  └─────────────────┘      │
-│         🔴                    ✅                    🔴                   🔴             │
-│   NOT IMPLEMENTED        IMPLEMENTED           NOT STARTED          NOT STARTED          │
+│         ✅                    ✅                    🔴                   🔴             │
+│     IMPLEMENTED          IMPLEMENTED           NOT STARTED          NOT STARTED          │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
                                         │
                                         ▼
@@ -81,19 +81,39 @@
 │              │                                           │                              │
 │              ▼                                           ▼                              │
 │  ┌─────────────────────────────┐        ┌─────────────────────────────┐                │
-│  │    LEADERBOARDS DOMAIN      │◄──────►│        CHAT DOMAIN          │                │
-│  │             ⚠️               │        │             ⚠️               │                │
+│  │     INDEXING DOMAIN         │◄──────►│    LEADERBOARDS DOMAIN      │                │
+│  │             ✅              │        │             ⚠️               │                │
 │  │                             │        │                             │                │
-│  │ • Ranking Algorithms        │        │ • Team Communication        │                │
-│  │ • Real-time Updates         │        │ • Judge Discussions         │                │
-│  │ • Score Aggregation         │        │ • AI Assistant Chat         │                │
-│  │ • Public/Private Views      │        │ • Moderation Tools          │                │
-│  │                             │        │                             │                │
-│  │ MCP Tools:                  │        │ MCP Tools:                  │                │
-│  │ • leaderboard.generate      │        │ • chat.send_message         │                │
-│  │ • leaderboard.get_rankings  │        │ • chat.get_conversation     │                │
-│  │ • leaderboard.export        │        │ • chat.moderate_content     │                │
+│  │ • LlamaIndex Integration    │        │ • Ranking Algorithms        │                │
+│  │ • Redis Vector Search       │        │ • Real-time Updates         │                │
+│  │ • RAG Document Processing   │        │ • Score Aggregation         │                │
+│  │ • Multi-tenant Isolation    │        │ • Public/Private Views      │                │
+│  │ • Azure OpenAI Embeddings   │        │                             │                │
+│  │                             │        │ MCP Tools:                  │                │
+│  │ MCP Tools:                  │        │ • leaderboard.generate      │                │
+│  │ • index.add_rubric          │        │ • leaderboard.get_rankings  │                │
+│  │ • index.add_transcript      │        │ • leaderboard.export        │                │
+│  │ • index.add_team_profile    │        │                             │                │
+│  │ • index.health_check        │        │                             │                │
+│  │ • index.list_collections    │        │                             │                │
 │  └─────────────────────────────┘        └─────────────────────────────┘                │
+│              │                                           │                              │
+│              │                                           │                              │
+│              ▼                                           ▼                              │
+│  ┌─────────────────────────────────────────────────────────────────────────────────────┤
+│  │        CHAT DOMAIN          │                                                        │
+│  │             ✅              │                                                        │
+│  │                             │                                                        │
+│  │ • LlamaIndex RAG Chat       │                                                        │
+│  │ • Event-scoped Q&A          │                                                        │
+│  │ • Context-aware Responses   │                                                        │
+│  │ • Multi-document Search     │                                                        │
+│  │                             │                                                        │
+│  │ MCP Tools:                  │                                                        │
+│  │ • chat.send_message         │                                                        │
+│  │ • chat.get_conversation     │                                                        │
+│  │ • chat.query_event_data     │                                                        │
+│  └─────────────────────────────┘                                                        │
 │                                                                                         │
 │  ┌─────────────────────────────────────────────────────────────────────────────────────┤
 │  │                           SHARED INFRASTRUCTURE                                     │
@@ -111,19 +131,23 @@
 │                               DATA & STORAGE LAYER                                       │
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐      │
-│  │      Redis      │  │     MinIO       │  │     Qdrant      │  │   PostgreSQL    │      │
-│  │       ✅        │  │       ✅        │  │       ✅        │  │       🔴        │      │
+│  │   Redis Stack   │  │     MinIO       │  │  🚫 Replaced    │  │   PostgreSQL    │      │
+│  │       ✅        │  │       ✅        │  │   by RedisVL    │  │       🔴        │      │
 │  │                 │  │                 │  │                 │  │                 │      │
-│  │ • Session Data  │  │ • Audio Files   │  │ • Vector Index  │  │ • Structured    │      │
-│  │ • Event Config  │  │ • Transcripts   │  │ • Document      │  │   Data          │      │
-│  │ • User Sessions │  │ • Presigned     │  │   Embeddings    │  │ • User Profiles │      │
-│  │ • Scoring Cache │  │   URLs          │  │ • RAG Pipeline  │  │ • Audit Logs    │      │
-│  │ • Leaderboards  │  │ • File Metadata │  │ • Semantic      │  │ • Analytics     │      │
-│  │                 │  │                 │  │   Search        │  │   Data          │      │
-│  │ Key Patterns:   │  │ Storage:        │  │ Collections:    │  │                 │      │
-│  │ event:{id}      │  │ sessions/{id}/  │  │ documents       │  │ Tables:         │      │
-│  │ user:{id}       │  │ recording.wav   │  │ embeddings      │  │ users           │      │
-│  │ session:{id}    │  │ transcript.json │  │ metadata        │  │ events          │      │
+│  │ • Session Data  │  │ • Audio Files   │  │ RedisVL now     │  │ • Structured    │      │
+│  │ • Event Config  │  │ • Transcripts   │  │ handles vector  │  │   Data          │      │
+│  │ • User Sessions │  │ • Presigned     │  │ operations in   │  │ • User Profiles │      │
+│  │ • Scoring Cache │  │   URLs          │  │ Redis Stack     │  │ • Audit Logs    │      │
+│  │ • Leaderboards  │  │ • File Metadata │  │                 │  │ • Analytics     │      │
+│  │ • Vector Indices│  │                 │  │                 │  │   Data          │      │
+│  │ • RAG Documents │  │ Storage:        │  │                 │  │                 │      │
+│  │ • Embeddings    │  │ sessions/{id}/  │  │                 │  │ Tables:         │      │
+│  │                 │  │ recording.wav   │  │                 │  │ users           │      │
+│  │ Key Patterns:   │  │ transcript.json │  │                 │  │ events          │      │
+│  │ event:{id}      │  │                 │  │                 │  │                 │      │
+│  │ user:{id}       │  │                 │  │                 │  │                 │      │
+│  │ session:{id}    │  │                 │  │                 │  │                 │      │
+│  │ idx:event_{id}  │  │                 │  │                 │  │                 │      │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  └─────────────────┘      │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
                                         │
@@ -232,22 +256,29 @@ graph TD
 - **Events Domain**: Complete event lifecycle management with sponsors, audiences, configurations
 - **Recordings Domain**: Full audio recording, STT, and audio intelligence analysis
 - **Scoring Domain**: Multi-criteria AI analysis with market intelligence integration
+- **Indexing Domain**: Complete LlamaIndex + RedisVL RAG implementation
+- **Chat Domain**: RAG-powered conversational AI over event data
 - **Shared Infrastructure**: Robust logging, error handling, authentication patterns
 
 #### **2. MCP Tools Integration**
-- **20+ MCP Tools** implemented across Events, Recordings, and Scoring domains
+- **30+ MCP Tools** implemented across 5 domains (Events, Recordings, Scoring, Indexing, Chat)
+- **Complete MCP Server** with stdio transport for AI assistant integration
 - **Type-safe** tool definitions with comprehensive parameter validation
 - **Async-first** implementation for high-performance operations
 - **Multi-tenant** tool scoping for secure event isolation
 
-#### **3. AI & Analysis Pipeline**
+#### **3. AI & RAG Pipeline**
 - **Azure OpenAI Integration** with LangChain for structured analysis
+- **LlamaIndex RAG**: Complete document indexing and retrieval system
+- **RedisVL Vector Storage**: High-performance in-memory vector search
 - **Multi-criteria Scoring**: Idea, Technical, Tools, Presentation analysis
 - **Audio Intelligence**: Gladia integration for speech metrics and delivery analysis
+- **Context-aware Chat**: Q&A over event rules, transcripts, and team data
 - **Market Enhancement**: Framework for real-time market validation (structure ready)
 
 #### **4. Infrastructure & Storage**
-- **Redis Stack**: Session management, caching, vector storage
+- **Redis Stack**: Session management, caching, vector indices, RAG documents
+- **RedisVL**: Vector search with 1536-dim embeddings and cosine similarity
 - **MinIO**: Audio file storage with presigned URLs
 - **Docker Environment**: Multi-service orchestration with health checks
 - **Comprehensive Testing**: Unit tests, integration tests, end-to-end workflows
@@ -264,17 +295,23 @@ graph TD
 - **HoneyHive**: AI quality assurance structure planned
 - **Senso.ai**: Contextual intelligence integration planned
 
-### 🔴 **Critical Missing Components**
+### 🔴 **Missing Components**
 
-#### **1. MCP Server Implementation**
-- **Actual MCP Protocol Server**: Currently have tools but no MCP server
-- **WebSocket/HTTP Transport**: Need official MCP SDK integration
-- **Authentication & Rate Limiting**: Security layer for MCP access
-
-#### **2. Frontend Applications**
+#### **1. Frontend Applications (Primary Gap)**
 - **Web Application**: React/Next.js dashboard for judges and organizers
-- **Mobile Apps**: iOS/Android apps for participants
-- **Developer Tools**: SDKs and CLI tools for third-party developers
+- **Mobile Apps**: iOS/Android apps for participants  
+- **Real-time UI**: Live leaderboards, scoring updates
+- **Judge Interface**: Scoring interface with audio playback
+
+#### **2. Developer Ecosystem**
+- **Developer SDKs**: JavaScript/Python SDKs for third-party integration
+- **CLI Tools**: Command-line tools for event management
+- **API Documentation**: Interactive API documentation beyond FastAPI docs
+
+#### **3. Production Features**
+- **Authentication System**: Stytch integration for user management
+- **Email/SMS**: Notification system for event updates
+- **Analytics Dashboard**: Usage tracking and business intelligence
 
 ## 🚀 Technical Implementation Quality
 

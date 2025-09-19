@@ -15,6 +15,7 @@ try:
     from domains.events.mcp.events_mcp_handler import events_mcp_handler
     from domains.users.mcp.users_mcp_tools import USERS_TOOLS, handle_users_tool_call
     from domains.scoring.mcp.scoring_mcp_tools import SCORING_MCP_TOOLS, execute_scoring_mcp_tool
+    from domains.leaderboards.mcp.leaderboard_mcp_tools import LEADERBOARD_MCP_TOOLS, execute_leaderboard_mcp_tool
     
     async def execute_events_tool(tool_name, args):
         """Execute events MCP tool."""
@@ -53,6 +54,9 @@ try:
         # Try scoring domain
         elif tool.startswith('analysis.'):
             return await execute_scoring_mcp_tool(tool, args)
+        # Try leaderboard domain
+        elif tool.startswith('leaderboard.'):
+            return await execute_leaderboard_mcp_tool(tool, args)
         else:
             return {"error": f"Unknown tool: {tool}"}
     
@@ -62,6 +66,7 @@ try:
         tools.extend(list(EVENTS_MCP_TOOLS.keys()))
         tools.extend([tool["name"] for tool in USERS_TOOLS])
         tools.extend(list(SCORING_MCP_TOOLS.keys()))
+        tools.extend([tool["name"] for tool in LEADERBOARD_MCP_TOOLS])
         return tools
         
 except ImportError as e:
@@ -253,6 +258,52 @@ async def get_audio_intelligence(session_id: str):
     except Exception as e:
         return {"error": str(e)}
 
+# Leaderboard endpoints
+@app.get("/api/leaderboard/{event_id}")
+async def get_event_leaderboard(event_id: str, limit: int = Query(10), include_details: bool = Query(True)):
+    """Get leaderboard rankings for an event"""
+    try:
+        result = await execute_leaderboard_mcp_tool(
+            "leaderboard.get_rankings",
+            {
+                "event_id": event_id,
+                "limit": limit,
+                "include_details": include_details
+            }
+        )
+        return result
+    except Exception as e:
+        return {"error": str(e), "details": "Make sure the event exists and has scored pitches"}
+
+@app.get("/api/leaderboard/{event_id}/team/{session_id}")
+async def get_team_rank(event_id: str, session_id: str):
+    """Get individual team's rank in the leaderboard"""
+    try:
+        result = await execute_leaderboard_mcp_tool(
+            "leaderboard.get_team_rank",
+            {
+                "event_id": event_id,
+                "session_id": session_id
+            }
+        )
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/api/leaderboard/{event_id}/stats")
+async def get_leaderboard_stats(event_id: str):
+    """Get leaderboard statistics for an event"""
+    try:
+        result = await execute_leaderboard_mcp_tool(
+            "leaderboard.get_stats",
+            {
+                "event_id": event_id
+            }
+        )
+        return result
+    except Exception as e:
+        return {"error": str(e)}
+
 # Serve static files (including our test HTML)
 @app.get("/test")
 async def serve_test_page():
@@ -268,3 +319,8 @@ async def serve_interface_page():
 async def serve_scoring_page():
     from fastapi.responses import FileResponse
     return FileResponse("scoring_interface.html")
+
+@app.get("/leaderboard")
+async def serve_leaderboard_page():
+    from fastapi.responses import FileResponse
+    return FileResponse("leaderboard_interface.html")

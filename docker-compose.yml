@@ -21,6 +21,8 @@ services:
       - BRIGHT_DATA_API_KEY=${BRIGHT_DATA_API_KEY}
       - BRIGHT_DATA_BASE_URL=${BRIGHT_DATA_BASE_URL}
       - BRIGHT_DATA_RATE_LIMIT=${BRIGHT_DATA_RATE_LIMIT}
+      - GLADIA_API_KEY=${GLADIA_API_KEY}
+      - GLADIA_API_URL=${GLADIA_API_URL}
     depends_on:
       - redis
       - minio

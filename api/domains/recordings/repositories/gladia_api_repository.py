@@ -21,6 +21,11 @@ class GladiaAPIRepository(ABC):
     async def get_session_results(self, gladia_session_id: str) -> Optional[Dict[str, Any]]:
         """Get final results for a completed session."""
         pass
+    
+    @abstractmethod
+    async def get_audio_intelligence(self, gladia_session_id: str) -> Optional[Dict[str, Any]]:
+        """Get Audio Intelligence analysis for a completed session."""
+        pass
 
 
 class GladiaWebSocketConnection(ABC):

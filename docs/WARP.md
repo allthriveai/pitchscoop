@@ -250,11 +250,11 @@ GLADIA_API_KEY=your_api_key_here
 6. Use pre-push hooks to validate before deployment
 
 ## Documentation Locations
-- Domain architecture: `api/docs/pitchscoop_domains.md`
-- Domain boundaries: `api/docs/domain_boundaries.md`
-- MCP implementation status: `GLADIA_MCP_STATUS.md`
-- Integration test results: `api/TEST_SUMMARY.md`
-- Various planning docs: `api/docs/*.md`
+- Domain architecture: `docs/pitchscoop_domains.md`
+- Domain boundaries: `docs/domain_boundaries.md`
+- MCP implementation status: `docs/GLADIA_MCP_STATUS.md`
+- Integration test results: `docs/TEST_SUMMARY.md`
+- Various planning docs: `docs/*.md`
 
 ## Project Rules
 

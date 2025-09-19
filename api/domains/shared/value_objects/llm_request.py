@@ -142,7 +142,7 @@ SCORING CRITERIA (each worth 25% of total score):
 1. **Idea (25%)** - Unique value proposition delivered by a vertical-specific agent using advanced reasoning, action, and tool use.
 2. **Technical Implementation (25%)** - Surprise and inspire judges through novel use of tools in a unique way.
 3. **Tool Use (25%)** - Integration of at least 3 sponsor tools to enable sophisticated agentic behavior.
-4. **Presentation (25%)** - Clear 3-minute demo showing the agent's impact with 1 overview slide.
+4. **Presentation Delivery (25%)** - Present a live demo in 3-minutes that clearly demonstrates the agent's impact.
 
 Provide scoring in JSON format:
 {{
@@ -155,7 +155,7 @@ Provide scoring in JSON format:
         "action_capabilities": "actions the agent can take",
         "tool_integration": "how tools enable the agent",
         "strengths": ["strength1", "strength2"],
-        "weaknesses": ["weakness1", "weakness2"]
+        "areas_of_improvement": ["improvement1", "improvement2"]
     }},
     "technical_implementation": {{
         "score": X.X,
@@ -165,7 +165,7 @@ Provide scoring in JSON format:
         "surprise_factor": "what surprised/inspired judges",
         "implementation_quality": "technical execution quality",
         "strengths": ["strength1", "strength2"],
-        "weaknesses": ["weakness1", "weakness2"]
+        "areas_of_improvement": ["improvement1", "improvement2"]
     }},
     "tool_use": {{
         "score": X.X,
@@ -176,18 +176,18 @@ Provide scoring in JSON format:
         "agentic_behavior": "sophisticated behaviors enabled",
         "tool_synergy": "how tools complement each other",
         "strengths": ["strength1", "strength2"],
-        "weaknesses": ["weakness1", "weakness2"]
+        "areas_of_improvement": ["improvement1", "improvement2"]
     }},
-    "presentation": {{
+    "presentation_delivery": {{
         "score": X.X,
         "max_score": 25,
         "demo_clarity": "how clear was the live demo",
-        "impact_demonstration": "how well agent impact was shown",
+        "impact_demonstration": "how well agent impact was demonstrated",
         "time_management": "stayed within 3 minutes",
-        "slide_effectiveness": "overview slide quality",
-        "presenter_confidence": "presentation delivery quality",
+        "delivery_quality": "presentation delivery effectiveness",
+        "agent_impact_shown": "how clearly the agent's impact was demonstrated",
         "strengths": ["strength1", "strength2"],
-        "weaknesses": ["weakness1", "weakness2"]
+        "areas_of_improvement": ["improvement1", "improvement2"]
     }},
     "overall": {{
         "total_score": X.X,
@@ -277,6 +277,89 @@ Analyze in JSON format:
         """.strip(),
         required_variables=["transcript"],
         description="Analysis of sponsor tool integration and agentic behavior"
+    ),
+    
+    "score_presentation_delivery_with_audio": PromptTemplate(
+        name="score_presentation_delivery_with_audio",
+        template="""
+You are an expert judge analyzing presentation delivery for an AI agent pitch competition.
+Score this presentation using BOTH transcript content AND audio delivery metrics from Gladia Audio Intelligence.
+
+TRANSCRIPT:
+{transcript}
+
+AUDIO INTELLIGENCE METRICS:
+- Speaking Rate: {words_per_minute} WPM (Assessment: {speaking_rate_assessment})
+- Target WPM: {benchmark_wpm} (Difference: {pace_vs_target:+.0f} WPM)
+- Filler Words: {filler_count} total ({filler_percentage:.1f}% of speech)
+- Most Common Filler: "{most_common_filler}"
+- Confidence Level: {confidence_score:.2f}/1.0 ({confidence_assessment})
+- Energy Level: {energy_level}
+- Delivery Grade: {professionalism_grade}
+
+SCORING CRITERION:
+**Presentation Delivery (25%)** - Present a live demo in 3-minutes that clearly demonstrates the agent's impact.
+
+Analyze using BOTH content (from transcript) AND delivery (from audio metrics):
+
+CONTENT ANALYSIS (40% weight):
+- Demo clarity and explanation quality
+- Agent impact demonstration effectiveness
+- Technical depth and specificity
+- Time management (3-minute constraint)
+
+AUDIO DELIVERY ANALYSIS (60% weight):
+- Speaking pace appropriateness ({speaking_rate_assessment} at {words_per_minute} WPM vs {benchmark_wpm} target)
+- Professional delivery quality ({filler_percentage:.1f}% filler words - {professionalism_grade})
+- Vocal confidence and energy ({confidence_assessment} confidence, {energy_level} energy)
+- Overall presentation polish
+
+Provide comprehensive analysis in JSON format:
+{{
+    "presentation_delivery": {{
+        "score": X.X,
+        "max_score": 25,
+        "content_analysis": {{
+            "demo_clarity": "assessment of demo explanation from transcript",
+            "impact_demonstration": "how well agent impact was shown in content",
+            "technical_depth": "technical detail level in explanation",
+            "time_management": "adherence to 3-minute time limit",
+            "content_score": X.X
+        }},
+        "audio_delivery_analysis": {{
+            "speaking_pace": "{speaking_rate_assessment} at {words_per_minute} WPM (target: {benchmark_wpm})",
+            "filler_control": "Professional delivery with {filler_percentage:.1f}% filler words ({professionalism_grade})",
+            "vocal_confidence": "{confidence_assessment} confidence ({confidence_score:.2f}/1.0)",
+            "energy_presence": "{energy_level} energy level",
+            "delivery_polish": "Overall presentation delivery assessment",
+            "audio_score": X.X
+        }},
+        "combined_analysis": {{
+            "content_weight": "40%",
+            "audio_weight": "60%",
+            "final_score": X.X,
+            "audio_enhanced_insights": "How audio metrics confirmed or enhanced content analysis"
+        }},
+        "strengths": ["strength1 with audio evidence", "strength2 from content analysis"],
+        "areas_of_improvement": [
+            "improvement1 with specific audio metrics (e.g., reduce {most_common_filler} usage)",
+            "improvement2 from content analysis"
+        ],
+        "coaching_recommendations": [
+            "Specific pace recommendation: {pace_recommendation}",
+            "Filler word coaching: {filler_coaching}",
+            "Content structure suggestion"
+        ]
+    }}
+}}
+        """.strip(),
+        required_variables=[
+            "transcript", "words_per_minute", "speaking_rate_assessment", 
+            "benchmark_wpm", "pace_vs_target", "filler_count", "filler_percentage",
+            "most_common_filler", "confidence_score", "confidence_assessment",
+            "energy_level", "professionalism_grade", "pace_recommendation", "filler_coaching"
+        ],
+        description="Enhanced presentation delivery scoring with Audio Intelligence metrics"
     ),
     
     "generate_judge_feedback": PromptTemplate(

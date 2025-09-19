@@ -203,6 +203,36 @@ MCP_TOOLS = {
             "required": ["session_id"]
         },
         "handler": "delete_session"
+    },
+    
+    "pitches.get_audio_intelligence": {
+        "name": "pitches.get_audio_intelligence",
+        "description": """
+        Get comprehensive audio intelligence analysis for a completed pitch recording.
+        
+        Retrieves advanced speech analysis including speech metrics (WPM, pauses),
+        filler word analysis, confidence assessment, and delivery scoring from 
+        Gladia Audio Intelligence API. Results are cached for performance.
+        
+        Use this tool to get detailed presentation delivery insights for pitch
+        scoring and coaching feedback after a recording is complete.
+        """,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {
+                    "type": "string",
+                    "description": "Session identifier for completed recording"
+                },
+                "force_reprocess": {
+                    "type": "boolean",
+                    "description": "Whether to force reprocessing and bypass cache (default: false)",
+                    "default": False
+                }
+            },
+            "required": ["session_id"]
+        },
+        "handler": "get_audio_intelligence"
     }
 }
 

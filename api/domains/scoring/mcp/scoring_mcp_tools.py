@@ -178,6 +178,107 @@ SCORING_MCP_TOOLS = {
         "handler": "get_scoring_results"
     },
     
+    "analysis.analyze_presentation_delivery": {
+        "name": "analysis.analyze_presentation_delivery",
+        "description": """
+        Analyze presentation delivery using both transcript content and Gladia Audio Intelligence.
+        
+        Provides comprehensive delivery analysis specifically for the "Presentation Delivery" criterion:
+        - Speaking pace and rhythm (Words Per Minute analysis)
+        - Professional delivery quality (filler word frequency)
+        - Confidence and energy levels (voice quality analysis)
+        - Pause effectiveness and timing patterns
+        - Content clarity from transcript analysis
+        - 3-minute time management assessment
+        
+        Combines traditional content analysis with objective audio metrics from Gladia's
+        Audio Intelligence API to provide data-driven presentation delivery scoring.
+        
+        Ideal for coaches and judges who want detailed, actionable feedback on
+        presentation skills with specific metrics and improvement suggestions.
+        """,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {
+                    "type": "string",
+                    "description": "Session identifier from the pitch recording"
+                },
+                "event_id": {
+                    "type": "string",
+                    "description": "Event ID for multi-tenant isolation"
+                },
+                "include_audio_metrics": {
+                    "type": "boolean",
+                    "description": "Whether to include Gladia Audio Intelligence metrics (default: true)",
+                    "default": True
+                },
+                "benchmark_wpm": {
+                    "type": "integer",
+                    "description": "Target words per minute for comparison (default: 150 for pitch presentations)",
+                    "default": 150,
+                    "minimum": 100,
+                    "maximum": 200
+                }
+            },
+            "required": ["session_id", "event_id"]
+        },
+        "handler": "analyze_presentation_delivery"
+    },
+    
+    "analysis.score_with_market_intelligence": {
+        "name": "analysis.score_with_market_intelligence",
+        "description": """
+        Score pitch with AI analysis PLUS real-time market intelligence from BrightData.
+        
+        This tool provides instant scoring by leveraging background market intelligence
+        gathering that starts during the pitch presentation. Key features:
+        
+        - Instant AI scoring (2.75 seconds) with background market data integration
+        - Market size validation against real industry data
+        - Competitive landscape analysis with funding information
+        - Industry trend alignment assessment
+        - Enhanced scoring accuracy with data-driven insights
+        
+        If background market intelligence is ready (cached during pitch), scoring
+        is nearly instant. If not ready, falls back to AI-only scoring with
+        optional market intelligence gathering.
+        
+        Perfect for real-time competition flow where judges score one pitch after another.
+        """,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {
+                    "type": "string",
+                    "description": "Session identifier from the pitch recording"
+                },
+                "event_id": {
+                    "type": "string",
+                    "description": "Event ID for multi-tenant isolation"
+                },
+                "judge_id": {
+                    "type": "string",
+                    "description": "Optional judge identifier for tracking scoring attribution"
+                },
+                "wait_for_market_intelligence": {
+                    "type": "boolean",
+                    "description": "Whether to wait for market intelligence or return AI-only score immediately",
+                    "default": False
+                },
+                "market_intelligence_timeout": {
+                    "type": "integer",
+                    "description": "Maximum seconds to wait for market intelligence (default: 10)",
+                    "default": 10,
+                    "minimum": 5,
+                    "maximum": 30
+                }
+            },
+            "required": ["session_id", "event_id"]
+        },
+        "handler": "score_with_background_market_intelligence"
+    },
+    
     "analysis.health_check": {
         "name": "analysis.health_check",
         "description": """

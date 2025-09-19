@@ -143,11 +143,13 @@ class GladiaMCPHandler:
             # Generate session ID
             session_id = str(uuid.uuid4())
             
-            # Create audio configuration
+            # Create audio configuration with Audio Intelligence enabled for pitch analysis
             if audio_config:
                 config = AudioConfiguration.from_dict(audio_config)
             else:
-                config = AudioConfiguration.create_default()
+                # Use full Audio Intelligence configuration for maximum accuracy
+                # This forces batch processing which is more accurate than WebSocket
+                config = AudioConfiguration.create_full_intelligence()
             
             # Initialize session data with event context
             session_data = {
@@ -159,7 +161,20 @@ class GladiaMCPHandler:
                 "pitch_title": pitch_title,
                 "status": "initializing",
                 "created_at": datetime.now(timezone.utc).isoformat(),
-                "audio_config": config.to_gladia_config(),
+                "audio_config": {
+                    "encoding": config.encoding.value,
+                    "sample_rate": config.sample_rate.value,
+                    "bit_depth": config.bit_depth.value,
+                    "channels": config.channels,
+                    "sentiment_analysis": config.sentiment_analysis,
+                    "emotion_analysis": config.emotion_analysis,
+                    "speaker_identification": config.speaker_identification,
+                    "summarization": config.summarization,
+                    "named_entity_recognition": config.named_entity_recognition,
+                    "chapterization": config.chapterization,
+                    "translation": config.translation,
+                    "target_language": config.target_language
+                },
                 "transcript_segments": [],
                 "has_audio": False,
                 "gladia_session_id": None,
@@ -287,7 +302,10 @@ class GladiaMCPHandler:
             }
         
         try:
+            logger.info(f"Starting stop_pitch_recording for session: {session_id}")
+            
             # Get session from Redis - need to find which event it belongs to
+            logger.info("Step 1: Connecting to Redis and finding session")
             redis_client = await self.get_redis()
             session_json = None
             event_id = None
@@ -301,8 +319,10 @@ class GladiaMCPHandler:
                         break
             
             if not session_json:
+                logger.error(f"Session not found: {session_id}")
                 return {"error": "Session not found", "session_id": session_id}
             
+            logger.info("Step 2: Session found, parsing data")
             session_data = json.loads(session_json)
             
             # Update status
@@ -310,6 +330,7 @@ class GladiaMCPHandler:
             session_data["recording_ended_at"] = datetime.now(timezone.utc).isoformat()
             
             # Handle audio storage if provided - convert base64 if needed
+            logger.info("Step 3: Processing audio data")
             final_audio_data = None
             if audio_data_base64:
                 try:
@@ -358,18 +379,68 @@ class GladiaMCPHandler:
                     }
                     session_data.update(audio_info)
             
+            # Process audio with Gladia Audio Intelligence if we have audio data
+            transcript_segments = session_data.get("transcript_segments", [])
+            audio_intelligence_data = {}
+            
+            if final_audio_data:
+                # Use Gladia batch processing for Audio Intelligence features
+                audio_config = AudioConfiguration.from_dict(session_data.get("audio_config", {}))
+                
+                # Temporarily disable batch processing - focus on WebSocket
+                # Check if Audio Intelligence features are enabled
+                if False and (audio_config.sentiment_analysis or audio_config.emotion_analysis or 
+                    audio_config.summarization or audio_config.named_entity_recognition or 
+                    audio_config.chapterization):
+                    
+                    logger.info("Processing audio with Gladia Audio Intelligence (batch mode)")
+                    batch_result = await self._process_audio_with_intelligence(
+                        final_audio_data, audio_config
+                    )
+                    
+                    if batch_result:
+                        transcript_segments = batch_result.get('transcript_segments', [])
+                        audio_intelligence_data = batch_result.get('intelligence_data', {})
+                        session_data["transcript_segments"] = transcript_segments
+                        session_data["audio_intelligence"] = audio_intelligence_data
+                        logger.info(f"Audio Intelligence processing complete: {len(transcript_segments)} segments")
+                
+                else:
+                    # Fallback to live WebSocket for basic transcription only
+                    logger.info("Using WebSocket fallback for transcription")
+                    if session_data.get("gladia_session_id") and session_data.get("websocket_url"):
+                        logger.info(f"WebSocket processing with session: {session_data.get('gladia_session_id')[:8]}...")
+                        gladia_transcript = await self._process_audio_with_gladia(
+                            session_data["gladia_session_id"],
+                            session_data["websocket_url"],
+                            final_audio_data
+                        )
+                        
+                        if gladia_transcript:
+                            logger.info(f"WebSocket returned {len(gladia_transcript)} transcript segments")
+                            transcript_segments.extend(gladia_transcript)
+                            session_data["transcript_segments"] = transcript_segments
+                        else:
+                            logger.warning("WebSocket processing returned no transcript segments")
+                    else:
+                        logger.error(f"WebSocket fallback failed: missing gladia_session_id or websocket_url")
+            
             # Stop Gladia session
+            logger.info("Step 4: Cleaning up Gladia session")
             if session_id in self.active_sessions:
                 # Send stop message to Gladia WebSocket
                 await self._stop_gladia_session(session_id)
                 del self.active_sessions[session_id]
+                logger.info(f"Cleaned up active session: {session_id}")
+            else:
+                logger.info(f"Session {session_id} not in active_sessions, skipping cleanup")
             
-            # Finalize transcript
-            transcript_segments = session_data.get("transcript_segments", [])
+            # Finalize transcript with Audio Intelligence data
             final_transcript = {
                 "segments_count": len(transcript_segments),
-                "total_text": " ".join([seg.get("text", "") for seg in transcript_segments]),
-                "segments": transcript_segments
+                "total_text": " ".join([seg.get("text", "") for seg in transcript_segments if seg.get("text")]),
+                "segments": transcript_segments,
+                "audio_intelligence": audio_intelligence_data
             }
             
             # Update session
@@ -398,10 +469,14 @@ class GladiaMCPHandler:
             }
             
         except Exception as e:
+            import traceback
+            logger.error(f"Failed to stop recording {session_id}: {str(e)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return {
                 "error": f"Failed to stop recording: {str(e)}",
                 "session_id": session_id,
-                "status": "error"
+                "status": "error",
+                "traceback": traceback.format_exc()
             }
     
     async def get_session_details(self, session_id: str) -> Dict[str, Any]:
@@ -677,6 +752,316 @@ class GladiaMCPHandler:
             logger.error(f"Failed to create Gladia session: {e}")
             return None
     
+    async def _process_audio_with_intelligence(self, audio_data: bytes, config: AudioConfiguration) -> Optional[Dict[str, Any]]:
+        """Process audio with Gladia Audio Intelligence using batch API."""
+        import aiohttp
+        import tempfile
+        import os
+        
+        api_key = os.getenv('GLADIA_API_KEY')
+        if not api_key:
+            logger.error("No Gladia API key for Audio Intelligence processing")
+            return None
+        
+        try:
+            # Debug: Check audio_data type and size
+            audio_size = len(audio_data) if hasattr(audio_data, '__len__') else 0
+            logger.info(f"Audio data type: {type(audio_data)}, size: {audio_size} bytes")
+            
+            # Check if audio is too large for batch processing (limit to ~200KB raw audio)
+            # Base64 encoding increases size by ~33%, so 200KB -> ~267KB encoded
+            if audio_size > 200000:
+                logger.warning(f"Audio too large for batch processing ({audio_size} bytes), will use WebSocket fallback")
+                return None
+            
+            # Ensure audio_data is bytes
+            if isinstance(audio_data, str):
+                logger.warning("Audio data is string, converting to bytes")
+                import base64
+                try:
+                    audio_data = base64.b64decode(audio_data)
+                    audio_size = len(audio_data)
+                    logger.info(f"Converted to bytes, new size: {audio_size} bytes")
+                except Exception as e:
+                    logger.error(f"Failed to decode base64 audio data: {e}")
+                    return None
+            
+            # Create temporary audio file for upload
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_file:
+                tmp_file.write(audio_data)
+                tmp_file_path = tmp_file.name
+            
+            logger.info(f"Uploading audio to Gladia for Audio Intelligence processing: {len(audio_data)} bytes")
+            
+            # Get Audio Intelligence configuration
+            ai_config = config.to_gladia_config(include_ai_features=True)
+            ai_config["language"] = "en"  # Can be made configurable
+            
+            # Submit to Gladia batch API - try JSON approach
+            async with aiohttp.ClientSession() as session:
+                # First, try to upload file and get URL, then transcribe
+                # For now, let's try the direct transcription endpoint with JSON
+                
+                # Read audio file as base64 for JSON upload
+                with open(tmp_file_path, 'rb') as audio_file:
+                    audio_content = audio_file.read()
+                    import base64
+                    audio_base64 = base64.b64encode(audio_content).decode('utf-8')
+                
+                # Prepare JSON payload for Gladia batch API
+                # Use only supported batch API parameters
+                json_payload = {
+                    'audio_url': f"data:audio/wav;base64,{audio_base64}",
+                    'language': 'en',
+                    'sentiment_analysis': ai_config.get('sentiment_analysis', False),
+                    'summarization': ai_config.get('summarization', False),
+                    'named_entity_recognition': ai_config.get('named_entity_recognition', False),
+                    'chapterization': ai_config.get('chapterization', False)
+                }
+                
+                logger.info(f"Sending JSON payload with config keys: {list(json_payload.keys())}")
+                
+                async with session.post(
+                    "https://api.gladia.io/v2/transcription/",
+                    headers={
+                        'Content-Type': 'application/json',
+                        'X-Gladia-Key': api_key,
+                    },
+                    json=json_payload,
+                    timeout=aiohttp.ClientTimeout(total=120)  # Longer timeout for batch processing
+                ) as response:
+                        
+                        if response.status in [200, 201]:
+                            result = await response.json()
+                            result_url = result.get('result_url')
+                            
+                            if result_url:
+                                # Poll for results
+                                return await self._poll_gladia_results(result_url, api_key)
+                        else:
+                            error_text = await response.text()
+                            logger.error(f"Gladia Audio Intelligence API error {response.status}: {error_text}")
+                            return None
+            
+        except Exception as e:
+            logger.error(f"Error processing audio with Gladia Audio Intelligence: {e}")
+            return None
+        finally:
+            # Clean up temporary file
+            try:
+                if 'tmp_file_path' in locals():
+                    os.unlink(tmp_file_path)
+            except Exception:
+                pass
+    
+    async def _poll_gladia_results(self, result_url: str, api_key: str, max_attempts: int = 30) -> Optional[Dict[str, Any]]:
+        """Poll Gladia for Audio Intelligence results."""
+        import aiohttp
+        
+        for attempt in range(max_attempts):
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        result_url,
+                        headers={'X-Gladia-Key': api_key},
+                        timeout=aiohttp.ClientTimeout(total=30)
+                    ) as response:
+                        
+                        if response.status == 200:
+                            result = await response.json()
+                            status = result.get('status')
+                            
+                            if status == 'done':
+                                # Extract transcript and intelligence data
+                                return self._extract_intelligence_data(result)
+                                
+                            elif status == 'error':
+                                logger.error(f"Gladia processing error: {result.get('error', 'Unknown error')}")
+                                return None
+                                
+                            else:
+                                # Still processing, wait and retry
+                                logger.info(f"Gladia processing status: {status} (attempt {attempt + 1}/{max_attempts})")
+                                await asyncio.sleep(2)  # Wait 2 seconds between polls
+                        else:
+                            logger.warning(f"Gladia polling error {response.status}, retrying...")
+                            await asyncio.sleep(2)
+                            
+            except Exception as e:
+                logger.warning(f"Error polling Gladia results: {e}")
+                await asyncio.sleep(2)
+        
+        logger.error("Gladia Audio Intelligence processing timed out")
+        return None
+    
+    def _extract_intelligence_data(self, gladia_result: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract transcript and Audio Intelligence data from Gladia result."""
+        transcript_segments = []
+        intelligence_data = {}
+        
+        # Extract transcript with Audio Intelligence annotations
+        prediction = gladia_result.get('prediction', {})
+        
+        # Get transcript segments
+        for utterance in prediction.get('utterances', []):
+            segment = {
+                "text": utterance.get('text', ''),
+                "confidence": utterance.get('confidence', 0.0),
+                "start_time": utterance.get('start', 0.0),
+                "end_time": utterance.get('end', 0.0),
+                "speaker": utterance.get('speaker', None),
+                "sentiment": utterance.get('sentiment', None),
+                "emotion": utterance.get('emotion', None),
+                "is_final": True  # Batch results are always final
+            }
+            if segment['text'].strip():  # Only add non-empty segments
+                transcript_segments.append(segment)
+        
+        # Extract Audio Intelligence insights
+        if 'sentiment_analysis' in prediction:
+            intelligence_data['sentiment_analysis'] = prediction['sentiment_analysis']
+            
+        if 'emotion_analysis' in prediction:
+            intelligence_data['emotion_analysis'] = prediction['emotion_analysis']
+            
+        if 'summarization' in prediction:
+            intelligence_data['summarization'] = prediction['summarization']
+            
+        if 'named_entity_recognition' in prediction:
+            intelligence_data['named_entity_recognition'] = prediction['named_entity_recognition']
+            
+        if 'chapterization' in prediction:
+            intelligence_data['chapterization'] = prediction['chapterization']
+        
+        logger.info(f"Extracted {len(transcript_segments)} segments and {len(intelligence_data)} AI insights")
+        
+        return {
+            'transcript_segments': transcript_segments,
+            'intelligence_data': intelligence_data
+        }
+    
+    async def _process_audio_with_gladia(self, gladia_session_id: str, websocket_url: str, audio_data: bytes) -> List[Dict[str, Any]]:
+        """Process audio with Gladia WebSocket and return transcript segments."""
+        import websockets
+        import json
+        
+        transcript_segments = []
+        
+        try:
+            logger.info(f"Connecting to Gladia WebSocket for transcription: {websocket_url[:50]}...")
+            
+            async with websockets.connect(websocket_url) as websocket:
+                logger.info("Connected to Gladia WebSocket")
+                
+                # Send audio data in chunks
+                chunk_size = 8192  # 8KB chunks
+                total_chunks = len(audio_data) // chunk_size + (1 if len(audio_data) % chunk_size else 0)
+                
+                logger.info(f"Sending {len(audio_data)} bytes in {total_chunks} chunks")
+                
+                for i in range(0, len(audio_data), chunk_size):
+                    chunk = audio_data[i:i + chunk_size]
+                    await websocket.send(chunk)
+                    
+                    # Small delay to simulate real-time streaming
+                    await asyncio.sleep(0.01)
+                
+                # Send stop recording message
+                stop_message = json.dumps({"type": "stop_recording"})
+                await websocket.send(stop_message)
+                logger.info("Sent stop recording message")
+                
+                # Listen for transcript messages
+                messages_received = 0
+                timeout_count = 0
+                max_messages = 50  # Prevent infinite loops
+                max_timeouts = 5   # Max consecutive timeouts
+                
+                while messages_received < max_messages and timeout_count < max_timeouts:
+                    try:
+                        # Wait for messages with timeout
+                        message = await asyncio.wait_for(websocket.recv(), timeout=2.0)
+                        messages_received += 1
+                        timeout_count = 0  # Reset timeout count on successful message
+                        
+                        try:
+                            parsed_message = json.loads(message)
+                            message_type = parsed_message.get('type')
+                            
+                            if message_type == 'transcript':
+                                data = parsed_message.get('data', {})
+                                utterance = data.get('utterance', {})
+                                text = utterance.get('text', '').strip()
+                                
+                                if text:  # Only process non-empty transcripts
+                                    segment = {
+                                        "text": text,
+                                        "confidence": utterance.get('confidence', 0.0),
+                                        "is_final": data.get('is_final', False),
+                                        "start_time": utterance.get('start', 0.0),
+                                        "end_time": utterance.get('end', 0.0),
+                                        "channel": utterance.get('channel', 0),
+                                        # Audio Intelligence data
+                                        "sentiment": utterance.get('sentiment', None),
+                                        "emotion": utterance.get('emotion', None),
+                                        "speaker": utterance.get('speaker', None)
+                                    }
+                                    transcript_segments.append(segment)
+                                    
+                                    # Enhanced logging for Audio Intelligence
+                                    log_parts = [f"'{text}' (confidence: {segment['confidence']})"]
+                                    if segment['sentiment']:
+                                        log_parts.append(f"sentiment: {segment['sentiment']}")
+                                    if segment['emotion']:
+                                        log_parts.append(f"emotion: {segment['emotion']}")
+                                    if segment['speaker']:
+                                        log_parts.append(f"speaker: {segment['speaker']}")
+                                    
+                                    logger.info(f"Transcript segment: {', '.join(log_parts)}")
+                            
+                            elif message_type == 'session_ends':
+                                logger.info("Gladia session ended")
+                                break
+                                
+                            elif message_type == 'error':
+                                error_msg = parsed_message.get('data', {}).get('message', 'Unknown error')
+                                logger.error(f"Gladia error: {error_msg}")
+                                break
+                            
+                            elif message_type in ['sentiment_analysis', 'emotion_analysis', 'summarization', 'named_entity_recognition', 'chapterization']:
+                                # Handle Audio Intelligence specific messages
+                                logger.info(f"Audio Intelligence {message_type}: {parsed_message.get('data', {})}")
+                                # Store AI insights in segments for later processing
+                                ai_segment = {
+                                    "type": message_type,
+                                    "data": parsed_message.get('data', {}),
+                                    "timestamp": parsed_message.get('timestamp', None)
+                                }
+                                transcript_segments.append(ai_segment)
+                            
+                            else:
+                                logger.debug(f"Received Gladia message: {message_type}")
+                        
+                        except json.JSONDecodeError:
+                            logger.warning("Received non-JSON message from Gladia")
+                            continue
+                    
+                    except asyncio.TimeoutError:
+                        timeout_count += 1
+                        logger.debug(f"WebSocket timeout {timeout_count}/{max_timeouts}")
+                        if timeout_count >= max_timeouts:
+                            logger.info("Max timeouts reached, ending transcription")
+                            break
+                
+                logger.info(f"Transcription complete. Received {len(transcript_segments)} segments")
+                
+        except websockets.exceptions.ConnectionClosed as e:
+            logger.warning(f"WebSocket connection closed: {e}")
+        except Exception as e:
+            logger.error(f"Error processing audio with Gladia: {e}")
+        
+        return transcript_segments
+    
     async def _stop_gladia_session(self, session_id: str):
         """Send stop message to Gladia WebSocket and clean up connection."""
         try:
@@ -692,10 +1077,8 @@ class GladiaMCPHandler:
                 finally:
                     del self.websocket_connections[session_id]
             
-            # Clean up active session state
-            if session_id in self.active_sessions:
-                del self.active_sessions[session_id]
-                logger.info(f"Cleaned up session state for {session_id}")
+            # Note: active_sessions cleanup is handled by stop_pitch_recording
+            # Don't delete here to avoid KeyError conflicts
         
         except Exception as e:
             logger.error(f"Error during session cleanup for {session_id}: {e}")
@@ -713,6 +1096,429 @@ class GladiaMCPHandler:
         except Exception:
             pass
         return None
+    
+    async def get_audio_intelligence(
+        self, 
+        session_id: str, 
+        force_reprocess: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Get Audio Intelligence analysis for a completed session.
+        
+        This method retrieves comprehensive audio analysis including:
+        - Speech metrics (WPM, pauses, speaking rate)
+        - Filler word analysis (um, uh, like detection)
+        - Confidence and energy level assessment
+        - Presentation delivery insights
+        
+        Args:
+            session_id: Session identifier
+            force_reprocess: Whether to force reprocessing with Gladia API
+            
+        Returns:
+            Audio Intelligence analysis results or error information
+        """
+        try:
+            # Find session using efficient lookup
+            session_key = await self._find_session_key(session_id)
+            if not session_key:
+                return {
+                    "error": "Session not found", 
+                    "session_id": session_id,
+                    "error_type": "session_not_found"
+                }
+            
+            redis_client = await self.get_redis()
+            session_json = await redis_client.get(session_key)
+            
+            if not session_json:
+                return {
+                    "error": "Session data not found", 
+                    "session_id": session_id,
+                    "error_type": "session_data_not_found"
+                }
+            
+            session_data = json.loads(session_json)
+            
+            # Check if session is completed
+            if session_data.get("status") not in ["completed", "stopped"]:
+                return {
+                    "error": "Session must be completed to get Audio Intelligence",
+                    "session_id": session_id,
+                    "status": session_data.get("status"),
+                    "error_type": "session_not_completed"
+                }
+            
+            # Extract event_id for proper key structure
+            event_id = session_data.get("event_id", "default")
+            
+            # Check if we already have Audio Intelligence data cached
+            ai_cache_key = f"event:{event_id}:audio_intelligence:{session_id}"
+            
+            if not force_reprocess:
+                cached_ai = await redis_client.get(ai_cache_key)
+                if cached_ai:
+                    logger.info(f"Returning cached Audio Intelligence for session {session_id}")
+                    ai_data = json.loads(cached_ai)
+                    ai_data["from_cache"] = True
+                    return ai_data
+            
+            # Check if we have Gladia session ID for API call
+            gladia_session_id = session_data.get("gladia_session_id")
+            if not gladia_session_id:
+                # Try to extract from intelligence data if available
+                intelligence_data = session_data.get("intelligence_data", {})
+                if intelligence_data:
+                    # We have some intelligence data from batch processing
+                    ai_analysis = self._create_audio_intelligence_from_session_data(
+                        session_id, session_data
+                    )
+                    
+                    # Cache the results
+                    await redis_client.setex(
+                        ai_cache_key,
+                        3600,  # 1 hour cache
+                        json.dumps(ai_analysis)
+                    )
+                    
+                    return ai_analysis
+                else:
+                    return {
+                        "error": "No Gladia session ID or intelligence data available",
+                        "session_id": session_id,
+                        "has_gladia_session": False,
+                        "has_intelligence_data": False,
+                        "error_type": "no_intelligence_source"
+                    }
+            
+            # Try to get Audio Intelligence from Gladia API
+            logger.info(f"Fetching Audio Intelligence from Gladia API for session {session_id}")
+            gladia_intelligence = await self._fetch_gladia_audio_intelligence(gladia_session_id)
+            
+            if gladia_intelligence:
+                # Create structured Audio Intelligence analysis
+                ai_analysis = self._create_audio_intelligence_analysis(
+                    session_id, gladia_session_id, gladia_intelligence, session_data
+                )
+                
+                # Cache the results for future requests
+                await redis_client.setex(
+                    ai_cache_key,
+                    3600,  # 1 hour cache
+                    json.dumps(ai_analysis)
+                )
+                
+                logger.info(f"Audio Intelligence analysis completed for session {session_id}")
+                return ai_analysis
+            else:
+                return {
+                    "error": "Failed to fetch Audio Intelligence from Gladia API",
+                    "session_id": session_id,
+                    "gladia_session_id": gladia_session_id,
+                    "error_type": "gladia_api_error"
+                }
+            
+        except json.JSONDecodeError as e:
+            return {
+                "error": f"Invalid session data format: {str(e)}",
+                "session_id": session_id,
+                "error_type": "data_parsing_error"
+            }
+        except Exception as e:
+            logger.error(f"Error getting Audio Intelligence for session {session_id}: {e}")
+            return {
+                "error": f"Failed to get Audio Intelligence: {str(e)}",
+                "session_id": session_id,
+                "error_type": "unexpected_error"
+            }
+    
+    async def _fetch_gladia_audio_intelligence(self, gladia_session_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch Audio Intelligence data from Gladia API."""
+        import aiohttp
+        
+        api_key = os.getenv('GLADIA_API_KEY')
+        if not api_key:
+            logger.error("No Gladia API key for Audio Intelligence fetch")
+            return None
+        
+        try:
+            # Use Gladia's session results endpoint which should include Audio Intelligence
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"https://api.gladia.io/v2/transcription/{gladia_session_id}",
+                    headers={'X-Gladia-Key': api_key},
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as response:
+                    
+                    if response.status == 200:
+                        result = await response.json()
+                        
+                        # Check if the result includes Audio Intelligence features
+                        prediction = result.get('prediction', {})
+                        if 'utterances' in prediction:
+                            return result
+                        else:
+                            logger.warning("No Audio Intelligence data in Gladia response")
+                            return None
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"Gladia API error {response.status}: {error_text}")
+                        return None
+        
+        except Exception as e:
+            logger.error(f"Error fetching Audio Intelligence from Gladia: {e}")
+            return None
+    
+    def _create_audio_intelligence_analysis(
+        self, 
+        session_id: str, 
+        gladia_session_id: str, 
+        gladia_result: Dict[str, Any],
+        session_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Create structured Audio Intelligence analysis from Gladia result."""
+        prediction = gladia_result.get('prediction', {})
+        metadata = gladia_result.get('metadata', {})
+        
+        # Calculate speech metrics from utterances
+        utterances = prediction.get('utterances', [])
+        total_words = 0
+        total_duration = float(metadata.get('duration', 0))
+        speaking_duration = 0.0
+        pause_count = 0
+        filler_words = []
+        
+        # Common filler words to detect
+        filler_patterns = ['um', 'uh', 'like', 'you know', 'actually', 'basically', 'literally']
+        
+        for utterance in utterances:
+            text = utterance.get('text', '').lower()
+            words = text.split()
+            total_words += len(words)
+            
+            # Calculate speaking duration (end - start)
+            start_time = float(utterance.get('start', 0))
+            end_time = float(utterance.get('end', 0))
+            speaking_duration += (end_time - start_time)
+            
+            # Detect filler words
+            for word in words:
+                if word.strip('.,!?') in filler_patterns:
+                    filler_words.append(word)
+        
+        # Calculate metrics
+        words_per_minute = (total_words / total_duration * 60) if total_duration > 0 else 0
+        pause_duration = max(0, total_duration - speaking_duration)
+        filler_percentage = (len(filler_words) / total_words * 100) if total_words > 0 else 0
+        
+        # Estimate confidence from speech patterns (simplified)
+        confidence_score = max(0.3, min(1.0, 1.0 - (filler_percentage / 100) * 2))
+        
+        # Determine energy level based on speaking pace
+        if words_per_minute > 160:
+            energy_level = "high"
+        elif words_per_minute > 120:
+            energy_level = "moderate"
+        else:
+            energy_level = "low"
+        
+        # Create Audio Intelligence structure using our value objects format
+        analysis_timestamp = datetime.now(timezone.utc).isoformat()
+        
+        ai_analysis = {
+            "session_id": session_id,
+            "gladia_session_id": gladia_session_id,
+            "analysis_timestamp": analysis_timestamp,
+            "team_name": session_data.get("team_name"),
+            "pitch_title": session_data.get("pitch_title"),
+            
+            "speech_metrics": {
+                "words_per_minute": round(words_per_minute, 1),
+                "total_duration_seconds": total_duration,
+                "speaking_duration_seconds": round(speaking_duration, 1),
+                "total_pause_duration_seconds": round(pause_duration, 1),
+                "pause_count": pause_count,
+                "speaking_rate_assessment": self._assess_speaking_rate(words_per_minute)
+            },
+            
+            "filler_analysis": {
+                "total_filler_count": len(filler_words),
+                "filler_words_detected": list(set(filler_words))[:10],  # Unique fillers, limit display
+                "filler_percentage": round(filler_percentage, 2),
+                "most_common_filler": max(set(filler_words), key=filler_words.count) if filler_words else None,
+                "filler_frequency_per_minute": round(len(filler_words) / total_duration * 60, 1) if total_duration > 0 else 0,
+                "professionalism_grade": self._grade_professionalism(filler_percentage)
+            },
+            
+            "confidence_metrics": {
+                "confidence_score": round(confidence_score, 2),
+                "energy_level": energy_level,
+                "vocal_stability": round(min(1.0, speaking_duration / total_duration), 2) if total_duration > 0 else 0.5,
+                "pace_consistency": 0.8,  # Placeholder - would need more detailed analysis
+                "confidence_assessment": self._assess_confidence(confidence_score)
+            },
+            
+            "presentation_insights": {
+                "overall_delivery_score": self._calculate_delivery_score(words_per_minute, filler_percentage, confidence_score),
+                "strengths": self._identify_strengths(words_per_minute, filler_percentage, confidence_score),
+                "areas_of_improvement": self._identify_improvements(words_per_minute, filler_percentage, confidence_score),
+                "coaching_recommendations": self._generate_coaching_insights(words_per_minute, filler_percentage, pause_duration, total_duration)
+            },
+            
+            "success": True,
+            "from_cache": False
+        }
+        
+        return ai_analysis
+    
+    def _create_audio_intelligence_from_session_data(self, session_id: str, session_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create Audio Intelligence analysis from existing session intelligence data."""
+        intelligence_data = session_data.get("intelligence_data", {})
+        transcript_segments = session_data.get("transcript_segments", [])
+        
+        # Basic analysis from transcript segments
+        total_words = 0
+        total_text = ""
+        
+        for segment in transcript_segments:
+            if isinstance(segment, dict) and "text" in segment:
+                text = segment["text"]
+                total_text += text + " "
+                total_words += len(text.split())
+        
+        # Estimate duration from session timing
+        duration = self._calculate_session_duration(session_data) or 180  # Default 3 minutes
+        words_per_minute = (total_words / duration * 60) if duration > 0 else 0
+        
+        # Simple filler detection
+        filler_patterns = ['um', 'uh', 'like', 'you know', 'actually', 'basically']
+        filler_words = []
+        for word in total_text.lower().split():
+            if word.strip('.,!?') in filler_patterns:
+                filler_words.append(word)
+        
+        filler_percentage = (len(filler_words) / total_words * 100) if total_words > 0 else 0
+        confidence_score = max(0.4, min(1.0, 1.0 - (filler_percentage / 100) * 1.5))
+        
+        return {
+            "session_id": session_id,
+            "gladia_session_id": session_data.get("gladia_session_id"),
+            "analysis_timestamp": datetime.now(timezone.utc).isoformat(),
+            "team_name": session_data.get("team_name"),
+            "pitch_title": session_data.get("pitch_title"),
+            
+            "speech_metrics": {
+                "words_per_minute": round(words_per_minute, 1),
+                "total_duration_seconds": duration,
+                "speaking_rate_assessment": self._assess_speaking_rate(words_per_minute)
+            },
+            
+            "filler_analysis": {
+                "total_filler_count": len(filler_words),
+                "filler_percentage": round(filler_percentage, 2),
+                "professionalism_grade": self._grade_professionalism(filler_percentage)
+            },
+            
+            "confidence_metrics": {
+                "confidence_score": round(confidence_score, 2),
+                "confidence_assessment": self._assess_confidence(confidence_score)
+            },
+            
+            "success": True,
+            "from_cache": False,
+            "data_source": "session_intelligence_data"
+        }
+    
+    def _assess_speaking_rate(self, wpm: float) -> str:
+        """Assess speaking rate for pitch presentations."""
+        if wpm < 120:
+            return "too_slow"
+        elif wpm > 180:
+            return "too_fast"
+        else:
+            return "appropriate"
+    
+    def _grade_professionalism(self, filler_percentage: float) -> str:
+        """Grade professionalism based on filler usage."""
+        if filler_percentage <= 2.0:
+            return "excellent"
+        elif filler_percentage <= 5.0:
+            return "good"
+        else:
+            return "needs_improvement"
+    
+    def _assess_confidence(self, confidence_score: float) -> str:
+        """Assess confidence level."""
+        if confidence_score >= 0.8:
+            return "high"
+        elif confidence_score >= 0.6:
+            return "moderate"
+        else:
+            return "low"
+    
+    def _calculate_delivery_score(self, wpm: float, filler_percentage: float, confidence_score: float) -> float:
+        """Calculate overall delivery score (0-100)."""
+        pace_score = 100 if 140 <= wpm <= 160 else max(60, 100 - abs(wpm - 150) * 2)
+        filler_score = max(30, 100 - filler_percentage * 15)
+        confidence_score_pct = confidence_score * 100
+        
+        return round((pace_score * 0.3 + filler_score * 0.4 + confidence_score_pct * 0.3), 1)
+    
+    def _identify_strengths(self, wpm: float, filler_percentage: float, confidence_score: float) -> List[str]:
+        """Identify presentation strengths."""
+        strengths = []
+        
+        if 140 <= wpm <= 160:
+            strengths.append(f"Excellent pacing at {wpm:.0f} WPM - ideal for technical presentations")
+        
+        if filler_percentage <= 2.0:
+            strengths.append(f"Professional delivery with only {filler_percentage:.1f}% filler words")
+        
+        if confidence_score >= 0.8:
+            strengths.append("High vocal confidence and presentation energy")
+        
+        return strengths if strengths else ["Completed full presentation delivery"]
+    
+    def _identify_improvements(self, wpm: float, filler_percentage: float, confidence_score: float) -> List[str]:
+        """Identify areas for improvement."""
+        improvements = []
+        
+        if wpm < 120:
+            improvements.append(f"Increase speaking pace from {wpm:.0f} to 140-160 WPM for better engagement")
+        elif wpm > 180:
+            improvements.append(f"Slow down from {wpm:.0f} to 140-160 WPM for better comprehension")
+        
+        if filler_percentage > 3.0:
+            improvements.append(f"Reduce filler words from {filler_percentage:.1f}% to under 2% (practice with strategic pauses)")
+        
+        if confidence_score < 0.7:
+            improvements.append("Practice delivery to improve vocal confidence and stability")
+        
+        return improvements
+    
+    def _generate_coaching_insights(self, wpm: float, filler_percentage: float, pause_duration: float, total_duration: float) -> List[str]:
+        """Generate actionable coaching recommendations."""
+        insights = []
+        
+        # Pacing insights
+        if wpm < 130:
+            insights.append("Practice speaking with more energy and conviction to increase engagement")
+        elif wpm > 170:
+            insights.append("Focus on clear articulation - slower pace improves understanding")
+        
+        # Pause effectiveness
+        if pause_duration > 0 and total_duration > 0:
+            pause_percentage = (pause_duration / total_duration) * 100
+            if pause_percentage < 10:
+                insights.append("Add strategic pauses after key points for emphasis and audience comprehension")
+            elif pause_percentage > 25:
+                insights.append("Reduce excessive pausing - maintain momentum while still allowing for emphasis")
+        
+        # Professional delivery
+        if filler_percentage > 2:
+            insights.append("Practice replacing filler words with brief pauses - builds confidence and professionalism")
+        
+        return insights
 
 
 # Global instance

@@ -1014,6 +1014,675 @@ Provide a structured comparison in JSON format:
                 "context_types": ["rubric", "comparative"]
             }
         }
+    
+    async def analyze_presentation_delivery(
+        self,
+        session_id: str,
+        event_id: str,
+        include_audio_metrics: bool = True,
+        benchmark_wpm: int = 150
+    ) -> Dict[str, Any]:
+        """
+        Analyze presentation delivery using transcript content and Gladia Audio Intelligence.
+        
+        Provides comprehensive delivery analysis specifically for the "Presentation Delivery" criterion:
+        - Speaking pace and rhythm (Words Per Minute analysis)
+        - Professional delivery quality (filler word frequency)
+        - Confidence and energy levels (voice quality analysis)
+        - Pause effectiveness and timing patterns
+        - Content clarity from transcript analysis
+        - 3-minute time management assessment
+        
+        Args:
+            session_id: Session identifier from pitch recording
+            event_id: Event ID for multi-tenant isolation
+            include_audio_metrics: Whether to include Gladia Audio Intelligence
+            benchmark_wpm: Target words per minute for comparison
+            
+        Returns:
+            Comprehensive presentation delivery analysis
+        """
+        from ...recordings.mcp.gladia_mcp_handler import gladia_mcp_handler
+        from ...shared.infrastructure.logging import ScoringLogger
+        
+        logger = ScoringLogger(event_id, session_id)
+        operation = "analyze_presentation_delivery"
+        
+        logger.info(
+            "Starting presentation delivery analysis",
+            operation=operation,
+            include_audio_metrics=include_audio_metrics,
+            benchmark_wpm=benchmark_wpm
+        )
+        
+        try:
+            # Get basic session transcript for content analysis
+            logger.debug("Retrieving session data", operation="get_session_data")
+            
+            try:
+                redis_client = await self.get_redis()
+                session_key = f"event:{event_id}:session:{session_id}"
+                session_json = await redis_client.get(session_key)
+            except Exception as redis_error:
+                logger.error(
+                    "Failed to retrieve session data",
+                    operation="get_session_data",
+                    exception=redis_error
+                )
+                return {
+                    "error": f"Database connection error: {str(redis_error)}",
+                    "session_id": session_id,
+                    "event_id": event_id,
+                    "error_type": "redis_connection_error"
+                }
+            
+            if not session_json:
+                logger.warning(
+                    "Session not found for presentation analysis",
+                    operation="session_validation"
+                )
+                return {
+                    "error": f"Session {session_id} not found in event {event_id}",
+                    "session_id": session_id,
+                    "event_id": event_id,
+                    "error_type": "session_not_found"
+                }
+            
+            try:
+                session_data = json.loads(session_json)
+                team_name = session_data.get("team_name")
+                pitch_title = session_data.get("pitch_title")
+                logger = ScoringLogger(event_id, session_id)  # Refresh with context
+            except json.JSONDecodeError as json_error:
+                logger.error(
+                    "Failed to parse session data",
+                    operation="session_parsing",
+                    exception=json_error
+                )
+                return {
+                    "error": f"Invalid session data format: {str(json_error)}",
+                    "session_id": session_id,
+                    "event_id": event_id,
+                    "error_type": "data_parsing_error"
+                }
+            
+            # Get transcript for content analysis
+            final_transcript = session_data.get("final_transcript", {})
+            transcript_text = final_transcript.get("total_text", "")
+            
+            if not transcript_text:
+                logger.warning(
+                    "No transcript available for presentation analysis",
+                    operation="transcript_validation",
+                    team_name=team_name
+                )
+                return {
+                    "error": "No transcript available for presentation analysis",
+                    "session_id": session_id,
+                    "event_id": event_id,
+                    "error_type": "missing_transcript"
+                }
+            
+            logger.debug(
+                "Transcript retrieved for analysis",
+                operation="transcript_validation",
+                transcript_length=len(transcript_text),
+                word_count=len(transcript_text.split())
+            )
+            
+            # Content Analysis (always performed)
+            content_analysis = self._analyze_presentation_content(
+                transcript_text, session_data, benchmark_wpm
+            )
+            
+            # Audio Intelligence Analysis (optional)
+            audio_analysis = None
+            if include_audio_metrics:
+                logger.info(
+                    "Fetching Audio Intelligence metrics",
+                    operation="get_audio_intelligence",
+                    team_name=team_name
+                )
+                
+                try:
+                    audio_intelligence = await gladia_mcp_handler.get_audio_intelligence(
+                        session_id=session_id,
+                        force_reprocess=False
+                    )
+                    
+                    if audio_intelligence.get("success"):
+                        logger.info(
+                            "Audio Intelligence retrieved successfully",
+                            operation="get_audio_intelligence",
+                            has_speech_metrics=bool(audio_intelligence.get("speech_metrics")),
+                            has_filler_analysis=bool(audio_intelligence.get("filler_analysis"))
+                        )
+                        audio_analysis = audio_intelligence
+                    else:
+                        logger.warning(
+                            "Audio Intelligence not available",
+                            operation="get_audio_intelligence",
+                            ai_error=audio_intelligence.get("error"),
+                            error_type=audio_intelligence.get("error_type")
+                        )
+                        # Continue without audio metrics
+                        
+                except Exception as ai_error:
+                    logger.warning(
+                        "Failed to get Audio Intelligence, continuing with content-only analysis",
+                        operation="get_audio_intelligence",
+                        exception=ai_error
+                    )
+                    # Continue without audio metrics
+            
+            # Create comprehensive presentation delivery analysis
+            analysis_result = self._create_presentation_delivery_analysis(
+                session_id=session_id,
+                event_id=event_id,
+                team_name=team_name,
+                pitch_title=pitch_title,
+                transcript_text=transcript_text,
+                content_analysis=content_analysis,
+                audio_analysis=audio_analysis,
+                benchmark_wpm=benchmark_wpm
+            )
+            
+            # Store analysis results in Redis for caching
+            try:
+                analysis_key = f"event:{event_id}:presentation_analysis:{session_id}"
+                await redis_client.setex(
+                    analysis_key,
+                    1800,  # 30 minutes cache
+                    json.dumps(analysis_result)
+                )
+                logger.debug(
+                    "Presentation analysis cached",
+                    operation="cache_analysis",
+                    cache_key=analysis_key
+                )
+            except Exception as cache_error:
+                logger.warning(
+                    "Failed to cache analysis results",
+                    operation="cache_analysis",
+                    exception=cache_error
+                )
+                # Continue - caching failure is not critical
+            
+            logger.log_duration(
+                operation,
+                team_name=team_name,
+                pitch_title=pitch_title,
+                success=True,
+                has_audio_metrics=bool(audio_analysis),
+                content_score=analysis_result.get("content_analysis", {}).get("score", 0)
+            )
+            
+            return analysis_result
+            
+        except Exception as e:
+            logger.error(
+                "Unexpected error during presentation delivery analysis",
+                operation=operation,
+                exception=e,
+                error_type=type(e).__name__,
+                traceback=traceback.format_exc()
+            )
+            return {
+                "error": f"Presentation delivery analysis failed: {str(e)}",
+                "session_id": session_id,
+                "event_id": event_id,
+                "success": False,
+                "error_type": "unexpected_error"
+            }
+    
+    def _analyze_presentation_content(
+        self, 
+        transcript_text: str, 
+        session_data: Dict[str, Any],
+        benchmark_wpm: int
+    ) -> Dict[str, Any]:
+        """Analyze presentation content from transcript."""
+        words = transcript_text.split()
+        word_count = len(words)
+        
+        # Estimate duration from session data or assume 3 minutes for pitch
+        duration_seconds = 180  # Default 3 minutes
+        if "completed_at" in session_data and "created_at" in session_data:
+            try:
+                from datetime import datetime
+                created = datetime.fromisoformat(session_data["created_at"])
+                completed = datetime.fromisoformat(session_data["completed_at"])
+                duration_seconds = (completed - created).total_seconds()
+            except Exception:
+                pass  # Use default
+        
+        # Calculate basic metrics
+        estimated_wpm = (word_count / duration_seconds * 60) if duration_seconds > 0 else 0
+        
+        # Content quality indicators
+        demo_keywords = ["demo", "demonstration", "show", "example", "here", "see", "look", "this", "feature"]
+        impact_keywords = ["impact", "result", "benefit", "improve", "solve", "help", "reduce", "increase"]
+        technical_keywords = ["api", "tool", "integration", "data", "system", "platform", "code"]
+        
+        demo_mentions = sum(1 for word in words if word.lower() in demo_keywords)
+        impact_mentions = sum(1 for word in words if word.lower() in impact_keywords)
+        technical_mentions = sum(1 for word in words if word.lower() in technical_keywords)
+        
+        # Calculate content scores
+        demo_clarity_score = min(10, demo_mentions * 2)  # Max 10 points
+        impact_demo_score = min(10, impact_mentions * 3)  # Max 10 points
+        technical_depth_score = min(10, technical_mentions * 2)  # Max 10 points
+        time_management_score = 10 if 150 <= duration_seconds <= 210 else max(5, 10 - abs(duration_seconds - 180) / 10)
+        
+        content_score = (demo_clarity_score + impact_demo_score + technical_depth_score + time_management_score) / 4
+        
+        return {
+            "word_count": word_count,
+            "estimated_duration_seconds": duration_seconds,
+            "estimated_wpm": round(estimated_wpm, 1),
+            "demo_clarity_score": demo_clarity_score,
+            "impact_demonstration_score": impact_demo_score,
+            "technical_depth_score": technical_depth_score,
+            "time_management_score": time_management_score,
+            "overall_content_score": round(content_score, 1),
+            "demo_mentions": demo_mentions,
+            "impact_mentions": impact_mentions,
+            "technical_mentions": technical_mentions
+        }
+    
+    def _create_presentation_delivery_analysis(
+        self,
+        session_id: str,
+        event_id: str,
+        team_name: str,
+        pitch_title: str,
+        transcript_text: str,
+        content_analysis: Dict[str, Any],
+        audio_analysis: Optional[Dict[str, Any]],
+        benchmark_wpm: int
+    ) -> Dict[str, Any]:
+        """Create comprehensive presentation delivery analysis."""
+        
+        analysis_timestamp = datetime.utcnow().isoformat()
+        
+        # Base analysis structure
+        result = {
+            "session_id": session_id,
+            "event_id": event_id,
+            "team_name": team_name,
+            "pitch_title": pitch_title,
+            "analysis_timestamp": analysis_timestamp,
+            "analysis_type": "presentation_delivery",
+            
+            "content_analysis": {
+                "demo_clarity": f"Clear demo explanation with {content_analysis['demo_mentions']} demo references",
+                "impact_demonstration": f"Impact shown with {content_analysis['impact_mentions']} impact indicators",
+                "technical_depth": f"Technical content with {content_analysis['technical_mentions']} technical terms",
+                "time_management": f"Duration: {content_analysis['estimated_duration_seconds']:.0f}s (target: 180s)",
+                "estimated_wpm": content_analysis["estimated_wpm"],
+                "content_score": content_analysis["overall_content_score"]
+            },
+            
+            "presentation_delivery_score": {
+                "content_score": content_analysis["overall_content_score"],
+                "max_content_score": 10.0
+            },
+            
+            "success": True
+        }
+        
+        # Add Audio Intelligence analysis if available
+        if audio_analysis and audio_analysis.get("success"):
+            speech_metrics = audio_analysis.get("speech_metrics", {})
+            filler_analysis = audio_analysis.get("filler_analysis", {})
+            confidence_metrics = audio_analysis.get("confidence_metrics", {})
+            presentation_insights = audio_analysis.get("presentation_insights", {})
+            
+            result["audio_intelligence"] = {
+                "available": True,
+                "speech_pace": {
+                    "words_per_minute": speech_metrics.get("words_per_minute", 0),
+                    "speaking_rate_assessment": speech_metrics.get("speaking_rate_assessment", "unknown"),
+                    "pace_vs_target": speech_metrics.get("words_per_minute", 0) - benchmark_wpm
+                },
+                "delivery_quality": {
+                    "filler_percentage": filler_analysis.get("filler_percentage", 0),
+                    "professionalism_grade": filler_analysis.get("professionalism_grade", "unknown"),
+                    "filler_words_detected": filler_analysis.get("filler_words_detected", [])
+                },
+                "confidence_energy": {
+                    "confidence_score": confidence_metrics.get("confidence_score", 0),
+                    "confidence_assessment": confidence_metrics.get("confidence_assessment", "unknown"),
+                    "energy_level": confidence_metrics.get("energy_level", "unknown")
+                },
+                "overall_audio_score": presentation_insights.get("overall_delivery_score", 0)
+            }
+            
+            # Enhanced presentation delivery score combining content and audio
+            audio_score = presentation_insights.get("overall_delivery_score", 0)
+            content_score = content_analysis["overall_content_score"]
+            
+            # Weighted combination: 60% audio delivery, 40% content
+            combined_score = (audio_score * 0.6 + content_score * 0.4)
+            
+            result["presentation_delivery_score"] = {
+                "content_score": content_score,
+                "audio_delivery_score": audio_score,
+                "combined_score": round(combined_score, 1),
+                "max_score": 25.0,  # Out of 25 points for this criterion
+                "final_score": round((combined_score / 100) * 25, 1)
+            }
+            
+            # Enhanced insights combining both analyses
+            result["insights"] = {
+                "strengths": presentation_insights.get("strengths", []) + self._content_strengths(content_analysis),
+                "areas_of_improvement": presentation_insights.get("areas_of_improvement", []) + self._content_improvements(content_analysis),
+                "coaching_recommendations": presentation_insights.get("coaching_recommendations", [])
+            }
+            
+        else:
+            # Content-only analysis
+            result["audio_intelligence"] = {
+                "available": False,
+                "reason": audio_analysis.get("error") if audio_analysis else "Audio Intelligence not requested"
+            }
+            
+            content_score = content_analysis["overall_content_score"]
+            result["presentation_delivery_score"]["final_score"] = round((content_score / 10) * 25, 1)
+            
+            result["insights"] = {
+                "strengths": self._content_strengths(content_analysis),
+                "areas_of_improvement": self._content_improvements(content_analysis),
+                "coaching_recommendations": self._content_coaching(content_analysis)
+            }
+        
+        return result
+    
+    def _content_strengths(self, content_analysis: Dict[str, Any]) -> List[str]:
+        """Identify content-based strengths."""
+        strengths = []
+        
+        if content_analysis["demo_mentions"] >= 5:
+            strengths.append("Clear focus on demonstrating the agent's capabilities")
+        
+        if content_analysis["impact_mentions"] >= 3:
+            strengths.append("Strong emphasis on agent impact and benefits")
+        
+        if content_analysis["technical_mentions"] >= 4:
+            strengths.append("Good technical depth in presentation")
+        
+        if 150 <= content_analysis["estimated_duration_seconds"] <= 210:
+            strengths.append("Excellent time management within 3-minute target")
+        
+        return strengths
+    
+    def _content_improvements(self, content_analysis: Dict[str, Any]) -> List[str]:
+        """Identify content-based improvements."""
+        improvements = []
+        
+        if content_analysis["demo_mentions"] < 3:
+            improvements.append("Include more explicit demonstrations of the agent in action")
+        
+        if content_analysis["impact_mentions"] < 2:
+            improvements.append("Emphasize the concrete impact and benefits of the agent")
+        
+        if content_analysis["estimated_duration_seconds"] > 220:
+            improvements.append("Tighten presentation to stay within 3-minute time limit")
+        elif content_analysis["estimated_duration_seconds"] < 140:
+            improvements.append("Expand presentation to better utilize the full 3-minute time slot")
+        
+        return improvements
+    
+    def _content_coaching(self, content_analysis: Dict[str, Any]) -> List[str]:
+        """Generate content-based coaching recommendations."""
+        recommendations = []
+        
+        recommendations.append("Structure: Problem → Solution → Demo → Impact")
+        recommendations.append("Use specific examples when demonstrating agent capabilities")
+        
+        if content_analysis["technical_mentions"] < 3:
+            recommendations.append("Include more technical details about implementation")
+        
+        if content_analysis["estimated_wpm"] < 120:
+            recommendations.append("Practice to increase speaking pace and maintain audience engagement")
+        
+        return recommendations
+
+
+    async def score_with_background_market_intelligence(
+        self,
+        session_id: str,
+        event_id: str,
+        judge_id: Optional[str] = None,
+        wait_for_market_intelligence: bool = False,
+        market_intelligence_timeout: int = 10
+    ) -> Dict[str, Any]:
+        """
+        Score pitch with AI analysis plus background market intelligence.
+        
+        This method provides instant scoring by checking if market intelligence
+        was pre-computed during the pitch presentation. If available, combines
+        AI analysis with real market data. If not, returns AI-only scores.
+        
+        Args:
+            session_id: Session identifier from pitch recording
+            event_id: Event ID for multi-tenant isolation
+            judge_id: Optional judge identifier
+            wait_for_market_intelligence: Whether to wait for market data
+            market_intelligence_timeout: Max seconds to wait
+            
+        Returns:
+            Enhanced scoring results with market intelligence if available
+        """
+        from ..services.recording_integration import recording_market_integrator
+        from ..services.market_intelligence_scorer import MarketIntelligenceScorer
+        
+        logger = ScoringLogger(event_id, session_id, judge_id)
+        operation = "score_with_background_market_intelligence"
+        
+        logger.info(
+            "Starting market intelligence-enhanced scoring",
+            operation=operation,
+            wait_for_market_data=wait_for_market_intelligence,
+            timeout_seconds=market_intelligence_timeout
+        )
+        
+        try:
+            # Get base AI scoring (this is always performed)
+            logger.debug("Starting base AI analysis", operation="base_ai_scoring")
+            base_scoring = await self.score_complete_pitch(
+                session_id=session_id,
+                event_id=event_id,
+                judge_id=judge_id
+            )
+            
+            if not base_scoring.get("success"):
+                logger.warning(
+                    "Base AI scoring failed - returning without market enhancement",
+                    operation=operation,
+                    ai_error=base_scoring.get("error")
+                )
+                return base_scoring
+            
+            logger.info(
+                "Base AI scoring completed successfully",
+                operation="base_ai_scoring",
+                base_total_score=base_scoring.get("scores", {}).get("overall", {}).get("total_score", 0)
+            )
+            
+            # Try to get cached market intelligence
+            logger.debug("Checking for cached market intelligence", operation="market_intelligence_check")
+            
+            market_data = await recording_market_integrator.get_market_intelligence_for_scoring(
+                session_id=session_id,
+                event_id=event_id
+            )
+            
+            if market_data:
+                logger.info(
+                    "Cached market intelligence found - enhancing scores",
+                    operation="market_enhancement",
+                    has_market_validation=bool(market_data.get("market_validation")),
+                    has_competitor_analysis=bool(market_data.get("competitor_analysis")),
+                    has_industry_trends=bool(market_data.get("industry_trends"))
+                )
+                
+                # Enhance scores with market intelligence
+                enhanced_scores = await MarketIntelligenceScorer().calculate_market_enhanced_score(
+                    base_ai_scores=base_scoring["scores"],
+                    market_validation=market_data.get("market_validation", {}),
+                    competitive_analysis=market_data.get("competitor_analysis", {}),
+                    industry_trends=market_data.get("industry_trends", {}),
+                    transcript_text=""  # Not needed for enhancement calculation
+                )
+                
+                # Store enhanced results
+                enhanced_record = {
+                    "session_id": session_id,
+                    "event_id": event_id,
+                    "judge_id": judge_id,
+                    "team_name": base_scoring["team_name"],
+                    "pitch_title": base_scoring["pitch_title"],
+                    "scoring_timestamp": datetime.utcnow().isoformat(),
+                    "scores": enhanced_scores,
+                    "market_intelligence": market_data,
+                    "scoring_method": "background_market_enhanced_ai",
+                    "base_ai_scores": base_scoring["scores"]
+                }
+                
+                # Store in Redis
+                try:
+                    redis_client = await self.get_redis()
+                    enhanced_key = f"event:{event_id}:enhanced_scoring:{session_id}"
+                    await redis_client.setex(enhanced_key, 86400, json.dumps(enhanced_record))
+                except Exception as storage_error:
+                    logger.warning(
+                        "Failed to store enhanced results",
+                        operation="enhanced_storage",
+                        error=str(storage_error)
+                    )
+                
+                logger.log_duration(
+                    operation,
+                    team_name=base_scoring["team_name"],
+                    success=True,
+                    enhanced_with_market_data=True
+                )
+                
+                return {
+                    "session_id": session_id,
+                    "event_id": event_id,
+                    "judge_id": judge_id,
+                    "team_name": base_scoring["team_name"],
+                    "pitch_title": base_scoring["pitch_title"],
+                    "scores": enhanced_scores,
+                    "market_intelligence_summary": {
+                        "market_validation_confidence": market_data.get("market_validation", {}).get("confidence", 0),
+                        "competitors_found": len(market_data.get("competitor_analysis", {}).get("competitors", [])),
+                        "industry_trend_alignment": market_data.get("industry_trends", {}).get("trend_alignment_score", 50),
+                        "enhancement_applied": True,
+                        "score_improvement": enhanced_scores["overall"]["market_enhancement"]
+                    },
+                    "scoring_timestamp": enhanced_record["scoring_timestamp"],
+                    "success": True,
+                    "enhanced_with_market_intelligence": True,
+                    "scoring_method": "background_market_enhanced_ai"
+                }
+                
+            else:
+                # No cached market intelligence available
+                logger.info(
+                    "No cached market intelligence available",
+                    operation="market_intelligence_check",
+                    wait_requested=wait_for_market_intelligence
+                )
+                
+                if wait_for_market_intelligence and market_intelligence_timeout > 0:
+                    logger.info(
+                        "Waiting for market intelligence to complete",
+                        operation="market_intelligence_wait",
+                        timeout_seconds=market_intelligence_timeout
+                    )
+                    
+                    # Wait for market intelligence with timeout
+                    wait_start = time.time()
+                    while (time.time() - wait_start) < market_intelligence_timeout:
+                        await asyncio.sleep(1)  # Check every second
+                        
+                        market_data = await recording_market_integrator.get_market_intelligence_for_scoring(
+                            session_id=session_id,
+                            event_id=event_id
+                        )
+                        
+                        if market_data:
+                            logger.info(
+                                "Market intelligence became available during wait",
+                                operation="market_intelligence_wait",
+                                wait_duration_seconds=int(time.time() - wait_start)
+                            )
+                            # Recursive call with market data now available
+                            return await self.score_with_background_market_intelligence(
+                                session_id=session_id,
+                                event_id=event_id,
+                                judge_id=judge_id,
+                                wait_for_market_intelligence=False,  # Avoid infinite wait
+                                market_intelligence_timeout=0
+                            )
+                    
+                    logger.warning(
+                        "Timeout waiting for market intelligence",
+                        operation="market_intelligence_wait",
+                        timeout_seconds=market_intelligence_timeout
+                    )
+                
+                # Return AI-only scores with market intelligence status
+                logger.log_duration(
+                    operation,
+                    team_name=base_scoring["team_name"],
+                    success=True,
+                    enhanced_with_market_data=False
+                )
+                
+                base_scoring["market_intelligence_summary"] = {
+                    "enhancement_applied": False,
+                    "reason": "No cached market intelligence available",
+                    "waited_for_data": wait_for_market_intelligence,
+                    "fallback_to_ai_only": True
+                }
+                base_scoring["enhanced_with_market_intelligence"] = False
+                base_scoring["scoring_method"] = "ai_only_fallback"
+                
+                return base_scoring
+                
+        except Exception as e:
+            logger.error(
+                "Error in market intelligence enhanced scoring",
+                operation=operation,
+                error=str(e),
+                error_type=type(e).__name__,
+                traceback_info=traceback.format_exc()
+            )
+            
+            # Fallback to base AI scoring on error
+            try:
+                fallback_result = await self.score_complete_pitch(
+                    session_id=session_id,
+                    event_id=event_id,
+                    judge_id=judge_id
+                )
+                fallback_result["market_intelligence_summary"] = {
+                    "enhancement_applied": False,
+                    "reason": f"Error in market intelligence: {str(e)}",
+                    "fallback_to_ai_only": True
+                }
+                return fallback_result
+            except Exception as fallback_error:
+                return {
+                    "error": f"Both market intelligence and AI scoring failed: {str(e)}, {str(fallback_error)}",
+                    "session_id": session_id,
+                    "event_id": event_id,
+                    "success": False
+                }
 
 
 # Global instance

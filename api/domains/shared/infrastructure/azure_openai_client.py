@@ -102,8 +102,8 @@ class AzureOpenAIClient:
                 for msg in request.messages
             ]
             
-            # Add event_id to metadata for logging/tracking
-            metadata = {"event_id": event_id} if event_id else {}
+            # Store event_id for logging but don't pass to API
+            # OpenAI API doesn't accept event_id as a parameter
             
             response = await client.chat.completions.create(
                 model=self.config.deployment,
@@ -113,8 +113,7 @@ class AzureOpenAIClient:
                 top_p=request.top_p,
                 frequency_penalty=request.frequency_penalty,
                 presence_penalty=request.presence_penalty,
-                stop=request.stop_sequences,
-                **metadata
+                stop=request.stop_sequences
             )
             
             # Extract response content
@@ -179,8 +178,8 @@ class AzureOpenAIClient:
                 for msg in request.messages
             ]
             
-            # Add event_id to metadata for logging/tracking
-            metadata = {"event_id": event_id} if event_id else {}
+            # Store event_id for logging but don't pass to API
+            # OpenAI API doesn't accept event_id as a parameter
             
             stream = await client.chat.completions.create(
                 model=self.config.deployment,
@@ -191,8 +190,7 @@ class AzureOpenAIClient:
                 frequency_penalty=request.frequency_penalty,
                 presence_penalty=request.presence_penalty,
                 stop=request.stop_sequences,
-                stream=True,
-                **metadata
+                stream=True
             )
             
             async for chunk in stream:

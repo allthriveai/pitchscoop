@@ -9,7 +9,7 @@
         "-T",
         "api",
         "python", 
-        "mcp_server_simple.py"
+        "mcp_server_test.py"
       ],
       "env": {
         "DOCKER_COMPOSE_PROJECT": "pitchscoop"

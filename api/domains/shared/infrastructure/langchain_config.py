@@ -32,8 +32,26 @@ class PitchScoreOutput(BaseModel):
     idea: Dict[str, Any] = Field(description="Idea scoring details")
     technical_implementation: Dict[str, Any] = Field(description="Technical scoring details")
     tool_use: Dict[str, Any] = Field(description="Tool usage scoring details")
-    presentation: Dict[str, Any] = Field(description="Presentation scoring details")
+    presentation_delivery: Dict[str, Any] = Field(description="Presentation delivery scoring with optional audio intelligence")
     overall: Dict[str, Any] = Field(description="Overall scoring summary")
+
+
+class EnhancedPresentationDeliveryOutput(BaseModel):
+    """Structured output for presentation delivery analysis with Audio Intelligence."""
+    
+    score: float = Field(description="Presentation delivery score (0-25)")
+    max_score: float = Field(description="Maximum possible score (25)")
+    
+    content_analysis: Dict[str, Any] = Field(description="Content analysis from transcript")
+    audio_delivery_analysis: Optional[Dict[str, Any]] = Field(description="Audio delivery analysis from Gladia AI")
+    combined_analysis: Optional[Dict[str, Any]] = Field(description="Combined scoring methodology")
+    
+    strengths: List[str] = Field(description="Identified presentation strengths")
+    areas_of_improvement: List[str] = Field(description="Areas for improvement")
+    coaching_recommendations: List[str] = Field(description="Actionable coaching suggestions")
+    
+    audio_intelligence_available: bool = Field(description="Whether Audio Intelligence data was used")
+    audio_intelligence_metrics: Optional[Dict[str, Any]] = Field(description="Raw audio intelligence metrics")
 
 
 class ToolAnalysisOutput(BaseModel):

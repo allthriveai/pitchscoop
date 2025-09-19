@@ -33,6 +33,10 @@ class STTSession:
     error_message: Optional[str] = field(default=None)
     session_name: Optional[str] = field(default=None)
     
+    # Relationship fields
+    user_id: Optional[str] = field(default=None)  # User who created this recording
+    event_id: Optional[str] = field(default=None)  # Event this recording belongs to
+    
     # Event handlers
     _on_transcript_callback: Optional[Callable[[TranscriptSegment], None]] = field(default=None, init=False, repr=False)
     _on_status_change_callback: Optional[Callable[['STTSession'], None]] = field(default=None, init=False, repr=False)
@@ -174,7 +178,10 @@ class STTSession:
             'error_message': self.error_message,
             'session_name': self.session_name,
             'duration_seconds': self.duration.total_seconds(),
-            'has_transcripts': self.has_transcripts
+            'has_transcripts': self.has_transcripts,
+            # Relationship fields
+            'user_id': self.user_id,
+            'event_id': self.event_id
         }
     
     def _update_timestamp(self) -> None:

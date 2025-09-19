@@ -1,8 +1,8 @@
 """
-RAG Integration Example - LlamaIndex-Powered CanaryQA
+RAG Integration Example - LlamaIndex-Powered PitchScoop
 
 This example demonstrates how to integrate and use the RAG-powered functionality
-in CanaryQA, including document indexing, chat, and enhanced scoring.
+in PitchScoop, including document indexing, chat, and enhanced scoring.
 
 Usage Examples:
 1. Index documents for RAG functionality
@@ -23,7 +23,7 @@ from ..scoring.mcp.scoring_mcp_tools import execute_scoring_mcp_tool
 
 
 class RAGIntegrationExample:
-    """Example usage of RAG-powered functionality in CanaryQA."""
+    """Example usage of RAG-powered functionality in PitchScoop."""
     
     def __init__(self, event_id: str):
         """Initialize with event ID for multi-tenant isolation."""
@@ -46,7 +46,7 @@ class RAGIntegrationExample:
                 "pitch_title": "HealthBot - AI-Powered Medical Assistant",
                 "status": "completed",
                 "final_transcript": {
-                    "total_text": "Hello judges, I'm presenting HealthBot, an AI-powered medical assistant that integrates OpenAI for natural language processing, Qdrant for medical knowledge storage, and MinIO for secure patient data management. Our solution addresses the critical need for 24/7 medical support in underserved areas. The technical implementation uses advanced RAG architecture to provide accurate medical advice by retrieving relevant information from our comprehensive medical knowledge base stored in Qdrant. We demonstrate seamless integration of three sponsor tools: OpenAI's GPT-4 for conversational AI, Qdrant for vector similarity search of medical conditions, and MinIO for HIPAA-compliant storage of patient interactions. Our presentation showcases a live demo where HealthBot successfully diagnoses common conditions, provides treatment recommendations, and escalates complex cases to human physicians. The impact is significant - reducing wait times from hours to seconds while maintaining medical accuracy through our AI-agent architecture."
+                    "total_text": "Hello judges, I'm presenting HealthBot, an AI-powered medical assistant that integrates OpenAI for natural language processing, RedisVL for medical knowledge storage, and MinIO for secure patient data management. Our solution addresses the critical need for 24/7 medical support in underserved areas. The technical implementation uses advanced RAG architecture to provide accurate medical advice by retrieving relevant information from our comprehensive medical knowledge base stored in RedisVL. We demonstrate seamless integration of three sponsor tools: OpenAI's GPT-4 for conversational AI, RedisVL for vector similarity search of medical conditions, and MinIO for HIPAA-compliant storage of patient interactions. Our presentation showcases a live demo where HealthBot successfully diagnoses common conditions, provides treatment recommendations, and escalates complex cases to human physicians. The impact is significant - reducing wait times from hours to seconds while maintaining medical accuracy through our AI-agent architecture."
                 },
                 "created_at": "2024-01-15T10:00:00Z",
                 "recording_duration": 180
@@ -57,7 +57,7 @@ class RAGIntegrationExample:
                 "pitch_title": "CloudAgent - Intelligent Infrastructure Management",
                 "status": "completed",
                 "final_transcript": {
-                    "total_text": "Introducing CloudAgent, the intelligent infrastructure management system that revolutionizes DevOps workflows. Our AI agent integrates OpenAI for intelligent decision-making, Qdrant for storing and querying infrastructure patterns, and MinIO for artifact and configuration management. CloudAgent addresses the growing complexity of cloud infrastructure by providing autonomous monitoring, predictive scaling, and intelligent troubleshooting. The technical architecture implements sophisticated agent behavior using OpenAI's models to analyze system metrics, Qdrant to find similar historical incidents for pattern matching, and MinIO to store deployment artifacts and rollback configurations. Our tool integration demonstrates advanced agentic behavior - the system can automatically detect anomalies, predict resource needs, and execute remediation actions without human intervention. The presentation shows CloudAgent reducing incident response time by 75% and preventing 90% of potential outages through proactive monitoring and AI-driven insights."
+                    "total_text": "Introducing CloudAgent, the intelligent infrastructure management system that revolutionizes DevOps workflows. Our AI agent integrates OpenAI for intelligent decision-making, RedisVL for storing and querying infrastructure patterns, and MinIO for artifact and configuration management. CloudAgent addresses the growing complexity of cloud infrastructure by providing autonomous monitoring, predictive scaling, and intelligent troubleshooting. The technical architecture implements sophisticated agent behavior using OpenAI's models to analyze system metrics, RedisVL to find similar historical incidents for pattern matching, and MinIO to store deployment artifacts and rollback configurations. Our tool integration demonstrates advanced agentic behavior - the system can automatically detect anomalies, predict resource needs, and execute remediation actions without human intervention. The presentation shows CloudAgent reducing incident response time by 75% and preventing 90% of potential outages through proactive monitoring and AI-driven insights."
                 },
                 "created_at": "2024-01-15T10:30:00Z", 
                 "recording_duration": 175
@@ -215,7 +215,7 @@ class RAGIntegrationExample:
                 "judge_id": "judge_001",
                 "scoring_context": {
                     "event_type": "ai_agent_competition",
-                    "sponsor_tools": ["OpenAI", "Qdrant", "MinIO"],
+                    "sponsor_tools": ["OpenAI", "RedisVL", "MinIO"],
                     "focus_areas": ["technical", "tools"]
                 }
             }
@@ -260,7 +260,7 @@ class RAGIntegrationExample:
             tool_name="chat.search_documents",
             arguments={
                 "event_id": self.event_id,
-                "query": "How did teams integrate OpenAI, Qdrant, and MinIO in their solutions?",
+                "query": "How did teams integrate OpenAI, RedisVL, and MinIO in their solutions?",
                 "document_types": ["transcript", "rubric"],
                 "max_results": 5,
                 "min_relevance_score": 0.2
@@ -406,7 +406,7 @@ class RAGIntegrationExample:
     
     async def run_all_examples(self):
         """Run all RAG integration examples in sequence."""
-        print("🚀 RAG Integration Examples for CanaryQA")
+        print("🚀 RAG Integration Examples for PitchScoop")
         print(f"Event ID: {self.event_id}")
         
         try:
@@ -452,8 +452,8 @@ class RAGIntegrationExample:
             print(f"\\n🎯 Overall Success Rate: {success_count}/7 ({success_count/7*100:.1f}%)")
             
             if success_count >= 5:
-                print("\\n🎉 RAG integration is working well!")
-                print("Ready for production use in CanaryQA competitions.")
+                print("\n🎉 RAG integration is working well!")
+                print("Ready for production use in PitchScoop competitions.")
             elif success_count >= 3:
                 print("\\n⚠️  RAG integration partially working.")
                 print("Some components may need attention before production use.")

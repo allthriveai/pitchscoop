@@ -1,6 +1,5 @@
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
-redis==5.2.0
 pydantic==2.10.3
 python-dotenv==1.0.1
 langchain
@@ -20,8 +19,11 @@ httpx>=0.27.0
 factory-boy==3.3.0
 
 # LlamaIndex for RAG and document processing
-llama-index==0.10.57
-llama-index-embeddings-openai==0.1.10
-llama-index-llms-openai==0.1.24
-llama-index-vector-stores-qdrant==0.2.8
-qdrant-client==1.9.1
+llama-index
+llama-index-embeddings-openai
+llama-index-llms-openai
+llama-index-vector-stores-redis
+# RedisVL for vector search capabilities
+redis[hiredis]==5.2.0
+redisvl
+numpy>=1.24.0

@@ -1,7 +1,7 @@
 """
 Chat MCP Tools Registry - RAG-Powered Conversational AI
 
-This module defines MCP tools for RAG-powered chat functionality in CanaryQA.
+This module defines MCP tools for RAG-powered chat functionality in PitchScoop.
 Uses LlamaIndex to provide context-aware conversations about pitches, rubrics,
 and scoring with proper source attribution.
 
@@ -357,11 +357,11 @@ CHAT_MCP_TOOLS = {
     "chat.health_check": {
         "name": "chat.health_check",
         "description": """
-        Check health and readiness of the RAG chat system.
+        """Check health and readiness of the RAG chat system.
         
         Verifies that all components of the RAG chat system are working:
         - LlamaIndex service connectivity and configuration
-        - Qdrant vector store availability and collections
+        - RedisVL vector store availability and indices
         - Azure OpenAI integration for chat and embeddings
         - Document indexing status and health
         - Redis conversation storage connectivity
@@ -371,7 +371,7 @@ CHAT_MCP_TOOLS = {
         end-to-end RAG pipeline functionality.
         
         Essential for ensuring chat system readiness before competitions.
-        """,
+        """
         "inputSchema": {
             "type": "object",
             "properties": {

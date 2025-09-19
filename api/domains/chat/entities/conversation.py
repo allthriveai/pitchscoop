@@ -1,7 +1,7 @@
 """
 Conversation Entity - Chat conversation management
 
-Manages conversations within the CanaryQA application, providing
+Manages conversations within the PitchScoop application, providing
 context tracking and session management for pitch-related discussions.
 """
 from datetime import datetime

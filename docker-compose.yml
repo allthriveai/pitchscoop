@@ -16,23 +16,26 @@ services:
       - SYSTEM_LLM_AZURE_ENDPOINT=${SYSTEM_LLM_AZURE_ENDPOINT}
       - SYSTEM_LLM_AZURE_API_KEY=${SYSTEM_LLM_AZURE_API_KEY}
       - SYSTEM_LLM_AZURE_DEPLOYMENT=${SYSTEM_LLM_AZURE_DEPLOYMENT}
+      - SYSTEM_LLM_AZURE_EMBEDDING_DEPLOYMENT=${SYSTEM_LLM_AZURE_EMBEDDING_DEPLOYMENT}
       - SYSTEM_LLM_AZURE_API_VERSION=${SYSTEM_LLM_AZURE_API_VERSION}
-      - QDRANT_HOST=qdrant
-      - QDRANT_PORT=6333
+      - BRIGHT_DATA_API_KEY=${BRIGHT_DATA_API_KEY}
+      - BRIGHT_DATA_BASE_URL=${BRIGHT_DATA_BASE_URL}
+      - BRIGHT_DATA_RATE_LIMIT=${BRIGHT_DATA_RATE_LIMIT}
     depends_on:
       - redis
       - minio
-      - qdrant
     networks:
       - hackathon-net
 
   redis:
-    image: redis:7-alpine
+    image: redis/redis-stack:7.2.0-v9
     ports:
-      - "6379:6379"
+      - "6379:6379"      # Redis
+      - "8001:8001"      # RedisInsight (optional)
     volumes:
       - redis-data:/data
-    command: redis-server --appendonly yes
+    environment:
+      - REDIS_ARGS="--appendonly yes"
     networks:
       - hackathon-net
 
@@ -50,20 +53,9 @@ services:
     networks:
       - hackathon-net
 
-  qdrant:
-    image: qdrant/qdrant:latest
-    ports:
-      - "6333:6333"      # HTTP API
-      - "6334:6334"      # gRPC API
-    volumes:
-      - qdrant-data:/qdrant/storage
-    networks:
-      - hackathon-net
-
 volumes:
   redis-data:
   minio-data:
-  qdrant-data:
 
 networks:
   hackathon-net:

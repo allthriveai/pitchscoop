@@ -1,11 +1,11 @@
 """
-MCP Tools for Indexing - LlamaIndex Integration
+MCP Tools for Indexing - Redis Vector Integration
 
 Provides MCP tools for indexing various document types into the RAG system
-for context-aware scoring and search functionality.
+for context-aware scoring and search functionality using Redis Vector Search.
 """
 from typing import Dict, Any, List
-from ..services.llamaindex_service import llamaindex_service
+from ..services.redis_vector_service import redis_vector_service
 from ..services.document_processor import document_processor
 
 
@@ -153,7 +153,7 @@ INDEXING_MCP_TOOLS = {
         "description": """
         Check the health status of the indexing system.
         
-        Verifies that LlamaIndex, Qdrant, and Azure OpenAI connections
+        Verifies that LlamaIndex, Redis Vector Search, and Azure OpenAI connections
         are working properly for indexing and search operations.
         """,
         "inputSchema": {
@@ -167,10 +167,10 @@ INDEXING_MCP_TOOLS = {
     "index.list_collections": {
         "name": "index.list_collections", 
         "description": """
-        List all available Qdrant collections for an event.
+        List all available Redis vector indices for an event.
         
         Shows which document types have been indexed for the event
-        and basic statistics about each collection.
+        and basic statistics about each index.
         """,
         "inputSchema": {
             "type": "object",
@@ -195,7 +195,7 @@ async def add_rubric(event_id: str, rubric_data: Dict[str, Any]) -> Dict[str, An
         doc = document_processor.create_rubric_document(event_id, rubric_data)
         
         # Index the document
-        result = await llamaindex_service.index_documents(
+        result = await redis_vector_service.index_documents(
             event_id=event_id,
             document_type="rubrics",
             documents=[doc]
@@ -232,7 +232,7 @@ async def add_transcript(event_id: str, session_id: str, transcript_data: Dict[s
         doc = document_processor.create_transcript_document(event_id, session_id, transcript_data)
         
         # Index the document
-        result = await llamaindex_service.index_documents(
+        result = await redis_vector_service.index_documents(
             event_id=event_id,
             document_type="transcripts", 
             documents=[doc]
@@ -273,7 +273,7 @@ async def add_team_profile(event_id: str, team_data: Dict[str, Any]) -> Dict[str
         doc = document_processor.create_team_document(event_id, team_data)
         
         # Index the document
-        result = await llamaindex_service.index_documents(
+        result = await redis_vector_service.index_documents(
             event_id=event_id,
             document_type="teams",
             documents=[doc]
@@ -309,14 +309,15 @@ async def add_team_profile(event_id: str, team_data: Dict[str, Any]) -> Dict[str
 async def health_check() -> Dict[str, Any]:
     """Check health of indexing system."""
     try:
-        health_status = await llamaindex_service.health_check()
+        health_status = await redis_vector_service.health_check()
         
         return {
             "service": "indexing",
             "healthy": health_status["healthy"],
             "components": {
                 "llamaindex": True,
-                "qdrant": health_status["healthy"],
+                "redis_vector": health_status["redis_connected"],
+                "vector_search": health_status["vector_search_available"],
                 "azure_openai": health_status.get("llm_model") != "unknown"
             },
             "details": health_status,
@@ -333,53 +334,26 @@ async def health_check() -> Dict[str, Any]:
 
 
 async def list_collections(event_id: str) -> Dict[str, Any]:
-    """List all collections for an event."""
+    """List all Redis vector indices for an event."""
     try:
-        # Get all document types we support
-        document_types = ["rubrics", "transcripts", "teams", "feedback"]
-        collections_info = []
+        # Use the Redis Vector service to list indices
+        result = await redis_vector_service.list_event_indices(event_id)
         
-        for doc_type in document_types:
-            collection_name = llamaindex_service._get_collection_name(event_id, doc_type)
-            
-            try:
-                collections = llamaindex_service.qdrant_client.get_collections()
-                existing_names = [c.name for c in collections.collections]
-                
-                if collection_name in existing_names:
-                    # Get collection info
-                    collection_info = llamaindex_service.qdrant_client.get_collection(collection_name)
-                    collections_info.append({
-                        "document_type": doc_type,
-                        "collection_name": collection_name,
-                        "exists": True,
-                        "vector_count": collection_info.vectors_count,
-                        "indexed_count": collection_info.points_count
-                    })
-                else:
-                    collections_info.append({
-                        "document_type": doc_type,
-                        "collection_name": collection_name,
-                        "exists": False,
-                        "vector_count": 0,
-                        "indexed_count": 0
-                    })
-                    
-            except Exception:
-                collections_info.append({
-                    "document_type": doc_type,
-                    "collection_name": collection_name,
-                    "exists": False,
-                    "error": "Failed to check collection"
-                })
-        
-        return {
-            "success": True,
-            "event_id": event_id,
-            "collections": collections_info,
-            "total_collections": len([c for c in collections_info if c.get("exists", False)]),
-            "message": f"Found {len([c for c in collections_info if c.get('exists', False)])} indexed document types for event"
-        }
+        if result["success"]:
+            return {
+                "success": True,
+                "event_id": event_id,
+                "collections": result["indices"],
+                "total_collections": len(result["indices"]),
+                "message": f"Found {len(result['indices'])} indexed document types for event"
+            }
+        else:
+            return {
+                "success": False,
+                "error": result.get("error", "Failed to list indices"),
+                "event_id": event_id,
+                "collections": []
+            }
         
     except Exception as e:
         return {

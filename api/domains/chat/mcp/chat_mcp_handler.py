@@ -1,7 +1,7 @@
 """
 Chat MCP Handler - RAG-Powered Conversational AI
 
-This handler provides RAG-powered chat functionality for CanaryQA using LlamaIndex.
+This handler provides RAG-powered chat functionality for PitchScoop using LlamaIndex.
 Enables context-aware conversations about pitch analysis, scoring, and evaluation
 with proper source attribution and multi-tenant isolation.
 
@@ -917,7 +917,7 @@ class ChatMCPHandler:
         test_query: bool = False
     ) -> Dict[str, Any]:
         """
-        Check health and readiness of the RAG chat system.
+        """Check health and readiness of the RAG chat system.
         
         Args:
             event_id: Optional event ID for context-specific health check
@@ -925,7 +925,7 @@ class ChatMCPHandler:
             test_query: Whether to test with a sample RAG query
             
         Returns:
-            Health status of all RAG chat components
+            Health status of all RAG chat components (RedisVL, Azure OpenAI, etc.)
         """
         logger = get_logger("chat.health_check")
         operation = "health_check"

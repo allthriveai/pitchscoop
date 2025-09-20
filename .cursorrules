@@ -1,0 +1,181 @@
+# PitchScoop - AI-Powered Pitch Competition Platform
+
+You are an expert Python developer working on PitchScoop, a pitch competition platform backend built with FastAPI, Redis, MinIO, and AI-powered analysis using MCP (Model Context Protocol).
+
+## Project Context
+
+PitchScoop is a hackathon and pitch competition platform that:
+- Records and transcribes pitches using Gladia STT API
+- Analyzes pitches using Azure OpenAI and LangChain
+- Stores audio files in MinIO object storage
+- Uses Redis for caching and session management
+- Provides MCP tools for AI assistant integration
+- Follows Domain-Driven Design principles
+
+## Technology Stack
+
+- **Backend**: Python 3.11 + FastAPI
+- **Database**: Redis for caching and sessions
+- **Storage**: MinIO for audio files
+- **AI/ML**: Azure OpenAI, LangChain, LlamaIndex
+- **STT**: Gladia API for speech-to-text
+- **Vector DB**: Qdrant for RAG and document processing
+- **Containerization**: Docker & Docker Compose
+- **Architecture**: Domain-Driven Design with MCP integration
+
+## Project Structure
+
+```
+pitchscoop/
+├── api/                          # Main FastAPI application
+│   ├── domains/                  # Domain-driven architecture
+│   │   ├── events/               # Event management (create, start, end events)
+│   │   ├── recordings/           # Audio recording & STT processing
+│   │   ├── scoring/              # AI-powered pitch analysis
+│   │   ├── leaderboards/         # Competition rankings
+│   │   ├── feedback/             # Individual feedback generation
+│   │   └── shared/               # Shared infrastructure (Azure OpenAI, utils)
+│   ├── tests/                    # Comprehensive test suite
+│   └── main.py                   # FastAPI app entry point
+├── docs/                         # All project documentation
+├── setup.sh                     # One-command setup script
+└── docker-compose.yml            # Multi-service orchestration
+```
+
+## Key Domains
+
+1. **Events**: Create and manage pitch competitions (hackathons, VC pitches, practice)
+2. **Recordings**: Handle audio recording, STT transcription, and MinIO storage
+3. **Scoring**: AI-powered pitch analysis using Azure OpenAI
+4. **Leaderboards**: Generate and display competition rankings
+5. **Feedback**: Create personalized feedback for participants
+
+## MCP Tools Available
+
+### Events Domain
+- `events.create_event` - Create pitch competitions
+- `events.list_events` - List events with filtering
+- `events.join_event` - Add participants
+- `events.start_event` - Begin competitions
+- `events.end_event` - Finalize events
+
+### Recordings Domain
+- `pitches.start_recording` - Initialize recording session
+- `pitches.stop_recording` - Finalize and store audio/transcript
+- `pitches.get_session` - Retrieve session details
+- `pitches.get_playback_url` - Generate audio URLs
+
+### Scoring Domain
+- `analysis.score_pitch` - Complete AI-powered pitch scoring
+- `analysis.score_idea` - Analyze idea uniqueness
+- `analysis.score_technical` - Analyze technical implementation
+- `analysis.score_presentation` - Analyze presentation delivery
+
+## Development Guidelines
+
+### Code Style
+- Follow Python PEP 8 standards
+- Use type hints everywhere (Pydantic v2)
+- Follow Domain-Driven Design principles
+- Keep domains loosely coupled
+- Use dependency injection for external services
+
+### Architecture Patterns
+- Domain entities in `domains/{domain}/entities/`
+- Value objects in `domains/{domain}/value_objects/`
+- Repositories for data access in `domains/{domain}/repositories/`
+- Services for business logic in `domains/{domain}/services/`
+- MCP tools in `domains/{domain}/mcp/`
+
+### Testing
+- Unit tests in `tests/unit/domains/{domain}/`
+- Integration tests in `tests/integration/`
+- E2E tests in `tests/e2e/`
+- Use pytest with async support
+- Mock external APIs (Gladia, Azure OpenAI) for unit tests
+
+### Environment Configuration
+- All configuration through environment variables
+- Use `.env.example` as template
+- Never commit secrets to version control
+- Azure OpenAI and Gladia API keys required for full functionality
+
+## Multi-Tenant Design
+
+- All data scoped by `event_id`
+- Redis keys: `event:{event_id}:*`
+- MinIO storage: `sessions/{session_id}/`
+- Complete data isolation between events
+
+## External Dependencies
+
+### Required Services (via Docker Compose)
+- **Redis**: Session storage and caching
+- **MinIO**: Audio file storage with console at localhost:9001
+- **Qdrant**: Vector database for RAG functionality
+
+### External APIs
+- **Azure OpenAI**: For AI-powered analysis (requires credentials)
+- **Gladia API**: For speech-to-text transcription (optional - has mock mode)
+
+## Development Workflow
+
+```bash
+# Start all services
+docker compose up --build
+
+# Run tests
+docker compose exec api pytest tests/
+
+# View API documentation
+# http://localhost:8000/docs
+```
+
+## Common Patterns
+
+### Adding New MCP Tools
+1. Create tool function in `domains/{domain}/mcp/{domain}_mcp_tools.py`
+2. Add to handler in `domains/{domain}/mcp/{domain}_mcp_handler.py`
+3. Register in main FastAPI app
+4. Add unit tests
+
+### Error Handling
+- Use custom domain exceptions
+- Return appropriate HTTP status codes
+- Log errors with context
+- Provide helpful error messages
+
+### Async/Await
+- Use async/await for all I/O operations
+- Database calls are async (Redis)
+- External API calls are async (Gladia, Azure OpenAI)
+- File operations are async (MinIO)
+
+## Important Notes
+
+- This is a hackathon project, prioritize working features over perfect architecture
+- MCP integration is key - all tools must be MCP-compliant
+- Multi-tenant design is critical for competitions
+- Audio processing pipeline: Record → Store in MinIO → Transcribe with Gladia → Analyze with Azure OpenAI
+- All domains should be testable in isolation
+- Use factory-boy for test data generation
+
+## File Naming Conventions
+
+- Snake_case for Python files and functions
+- PascalCase for classes
+- ALL_CAPS for constants
+- Domain prefixes for MCP tools (e.g., `events.create_event`)
+
+## When suggesting code changes:
+
+1. Follow the existing domain structure
+2. Add appropriate type hints and docstrings  
+3. Include relevant tests
+4. Consider multi-tenant implications
+5. Ensure MCP tool compatibility
+6. Use async/await for I/O operations
+7. Handle errors appropriately
+8. Add logging where helpful
+
+Remember: This is a comprehensive platform for AI-powered pitch analysis with MCP integration. Focus on clean domain boundaries, testability, and MCP compliance.

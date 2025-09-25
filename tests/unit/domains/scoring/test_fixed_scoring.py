@@ -12,7 +12,7 @@ async def test_fixed_scoring():
     print("=" * 60)
     
     try:
-        from domains.scoring.mcp.scoring_mcp_handler import ScoringMCPHandler
+        from api.domains.scoring.mcp.scoring_mcp_handler import ScoringMCPHandler
         
         handler = ScoringMCPHandler()
         result = await handler.score_complete_pitch(

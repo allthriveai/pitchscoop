@@ -52,7 +52,7 @@ async def test_azure_openai_client():
     print("\n🔗 Testing Azure OpenAI connectivity...")
     
     try:
-        from domains.shared.infrastructure.azure_openai_client import get_azure_openai_client
+        from api.domains.shared.infrastructure.azure_openai_client import get_azure_openai_client
         
         client = await get_azure_openai_client()
         health = await client.health_check()
@@ -78,7 +78,7 @@ async def test_langchain_integration():
     print("\n⛓️  Testing LangChain integration...")
     
     try:
-        from domains.shared.infrastructure.langchain_config import get_pitch_analysis_chains
+        from api.domains.shared.infrastructure.langchain_config import get_pitch_analysis_chains
         
         chains = get_pitch_analysis_chains()
         
@@ -113,7 +113,7 @@ async def test_scoring_mcp_tools():
     print("\n🎯 Testing scoring MCP tools...")
     
     try:
-        from domains.scoring.mcp.scoring_mcp_tools import (
+        from api.domains.scoring.mcp.scoring_mcp_tools import (
             list_scoring_tools,
             get_scoring_tools_summary,
             execute_scoring_mcp_tool
@@ -148,7 +148,7 @@ async def test_complete_workflow():
     print("\n🔄 Testing complete pitch scoring workflow...")
     
     try:
-        from domains.scoring.mcp.scoring_mcp_tools import execute_scoring_mcp_tool
+        from api.domains.scoring.mcp.scoring_mcp_tools import execute_scoring_mcp_tool
         import redis.asyncio as redis
         
         # Create mock session data in Redis (simulating completed pitch recording)

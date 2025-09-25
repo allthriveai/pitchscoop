@@ -57,6 +57,12 @@ MCP_TOOLS = {
                         "encoding": {"type": "string", "default": "linear16"}
                     },
                     "required": []
+                },
+                "stt_provider": {
+                    "type": "string",
+                    "description": "Speech-to-Text provider to use. Currently only supports Gladia.",
+                    "enum": ["gladia"],
+                    "default": "gladia"
                 }
             },
             "required": ["team_name", "pitch_title"]
@@ -85,6 +91,12 @@ MCP_TOOLS = {
                 "audio_data_base64": {
                     "type": "string",
                     "description": "Optional base64-encoded complete audio file to store in MinIO"
+                },
+                "audio_format": {
+                    "type": "string",
+                    "description": "Audio format of the uploaded data (e.g., 'webm', 'wav', 'mp3'). Required if audio_data_base64 is provided.",
+                    "enum": ["webm", "wav", "mp3", "ogg", "m4a"],
+                    "default": "wav"
                 }
             },
             "required": ["session_id"]
@@ -264,11 +276,20 @@ async def execute_mcp_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[st
         # Handle special case for audio data decoding
         if tool_name == "pitches.stop_recording" and "audio_data_base64" in arguments:
             import base64
+            
+            # Debug: Log what arguments we received
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"stop_recording arguments received: {list(arguments.keys())}")
+            logger.info(f"audio_format value: {arguments.get('audio_format', 'NOT PROVIDED')}")
+            
             audio_data_b64 = arguments.pop("audio_data_base64")
             if audio_data_b64:
                 try:
                     audio_data = base64.b64decode(audio_data_b64)
                     arguments["audio_data"] = audio_data
+                    # audio_format should remain in arguments dict to be passed through
+                    logger.info(f"After processing, arguments: {list(arguments.keys())}")
                 except Exception as e:
                     return {
                         "error": f"Invalid base64 audio data: {str(e)}",

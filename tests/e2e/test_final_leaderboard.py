@@ -12,7 +12,7 @@ async def test_complete_system():
     print("=" * 60)
     
     try:
-        from domains.leaderboards.mcp.leaderboard_mcp_tools import execute_leaderboard_mcp_tool
+        from api.domains.leaderboards.mcp.leaderboard_mcp_tools import execute_leaderboard_mcp_tool
         
         # Test 1: Get Rankings
         print("1. 🏆 Getting Event Leaderboard:")

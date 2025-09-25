@@ -10,7 +10,7 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "api"))
 
-from domains.leaderboards.mcp.leaderboard_mcp_tools import execute_leaderboard_mcp_tool
+from api.domains.leaderboards.mcp.leaderboard_mcp_tools import execute_leaderboard_mcp_tool
 
 async def demo_leaderboard():
     """Demonstrate leaderboard MCP functionality."""

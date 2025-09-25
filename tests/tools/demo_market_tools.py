@@ -7,7 +7,7 @@ pitch evaluation and judging workflows.
 """
 import asyncio
 import json
-from domains.market.mcp.market_mcp_tools import execute_market_mcp_tool
+from api.domains.market.mcp.market_mcp_tools import execute_market_mcp_tool
 
 
 async def judge_evaluates_fintech_pitch():

@@ -13,7 +13,7 @@ Verifies that LlamaIndex, Qdrant, and Azure OpenAI integration
 works correctly in the Docker environment.
 """
 import asyncio
-from domains.indexing.mcp.indexing_tools import execute_indexing_tool
+from api.domains.indexing.mcp.indexing_tools import execute_indexing_tool
 
 
 async def test_llamaindex_integration():
@@ -155,7 +155,7 @@ async def test_rag_query():
     print("=" * 40)
     
     try:
-        from domains.indexing.services.llamaindex_service import llamaindex_service
+        from api.domains.indexing.services.llamaindex_service import llamaindex_service
         
         # Test querying the indexed rubric
         result = await llamaindex_service.query_index(

@@ -51,7 +51,7 @@ async def test_mcp_server():
         print("\n🔧 Testing tool execution...")
         
         # Import direct tool executor for testing
-        from domains.events.mcp.events_mcp_tools import execute_events_mcp_tool
+        from api.domains.events.mcp.events_mcp_tools import execute_events_mcp_tool
         
         # Test listing events
         result = await execute_events_mcp_tool("events.list_events", {})
@@ -86,10 +86,10 @@ async def test_tool_schemas():
     
     try:
         # Import tool collections
-        from domains.events.mcp.events_mcp_tools import EVENTS_MCP_TOOLS
-        from domains.recordings.mcp.mcp_tools import MCP_TOOLS as RECORDINGS_MCP_TOOLS  
-        from domains.scoring.mcp.scoring_mcp_tools import SCORING_MCP_TOOLS
-        from domains.chat.mcp.chat_mcp_tools import CHAT_MCP_TOOLS
+        from api.domains.events.mcp.events_mcp_tools import EVENTS_MCP_TOOLS
+        from api.domains.recordings.mcp.mcp_tools import MCP_TOOLS as RECORDINGS_MCP_TOOLS  
+        from api.domains.scoring.mcp.scoring_mcp_tools import SCORING_MCP_TOOLS
+        from api.domains.chat.mcp.chat_mcp_tools import CHAT_MCP_TOOLS
         
         all_tools = {
             "events": EVENTS_MCP_TOOLS,

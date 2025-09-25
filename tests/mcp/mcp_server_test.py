@@ -45,8 +45,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "api"))
 
 # Import only the working domains
-from domains.events.mcp.events_mcp_tools import execute_events_mcp_tool, EVENTS_MCP_TOOLS
-from domains.recordings.mcp.mcp_tools import execute_mcp_tool as execute_recordings_tool, MCP_TOOLS as RECORDINGS_MCP_TOOLS
+from api.domains.events.mcp.events_mcp_tools import execute_events_mcp_tool, EVENTS_MCP_TOOLS
+from api.domains.recordings.mcp.mcp_tools import execute_mcp_tool as execute_recordings_tool, MCP_TOOLS as RECORDINGS_MCP_TOOLS
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

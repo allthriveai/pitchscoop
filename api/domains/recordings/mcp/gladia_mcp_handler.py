@@ -277,7 +277,8 @@ class GladiaMCPHandler:
         self, 
         session_id: str,
         audio_data: Optional[bytes] = None,
-        audio_data_base64: Optional[str] = None
+        audio_data_base64: Optional[str] = None,
+        audio_format: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Stop pitch recording and finalize the session.
@@ -329,16 +330,141 @@ class GladiaMCPHandler:
             session_data["status"] = "processing"
             session_data["recording_ended_at"] = datetime.now(timezone.utc).isoformat()
             
-            # Handle audio storage if provided - convert base64 if needed
-            logger.info("Step 3: Processing audio data")
+            # Handle audio storage if provided - proper WebM to WAV conversion
+            logger.info("Step 3: Processing audio data with proper format conversion")
             final_audio_data = None
-            if audio_data_base64:
+            # Check for audio_data (bytes) OR audio_data_base64 (string)
+            if audio_data or audio_data_base64:
                 try:
                     import base64
-                    final_audio_data = base64.b64decode(audio_data_base64)
-                    logger.info(f"Converted base64 audio data, size: {len(final_audio_data)} bytes")
+                    import tempfile
+                    import subprocess
+                    import os
+                    
+                    # Handle both bytes (from MCP) and base64 string (direct call)
+                    if audio_data:
+                        raw_audio_data = audio_data  # Already decoded by MCP layer
+                        logger.info(f"Using pre-decoded audio data, size: {len(raw_audio_data)} bytes")
+                    elif audio_data_base64:
+                        raw_audio_data = base64.b64decode(audio_data_base64)
+                        logger.info(f"Decoded base64 audio data, size: {len(raw_audio_data)} bytes")
+                    else:
+                        logger.error("No audio data provided")
+                        return {"error": "No audio data provided", "session_id": session_id}
+                    
+                    # Detect audio format
+                    detected_format = audio_format or 'webm'
+                    logger.info(f"Processing {detected_format} audio for Gladia")
+                    
+                    if detected_format.lower() == 'webm':
+                        # Convert WebM to WAV using FFmpeg for proper audio processing
+                        logger.info("🔧 Converting WebM to WAV using FFmpeg for optimal Gladia compatibility")
+                        
+                        with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as input_file:
+                            input_file.write(raw_audio_data)
+                            input_path = input_file.name
+                        
+                        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as output_file:
+                            output_path = output_file.name
+                        
+                        try:
+                            # CRITICAL FIX: Use proper FFmpeg settings for WebM/Opus to WAV conversion
+                            # WebM uses Opus codec which needs special handling
+                            ffmpeg_cmd = [
+                                'ffmpeg',
+                                '-i', input_path,
+                                # Force decode WebM/Opus properly
+                                '-vn',  # No video
+                                '-sn',  # No subtitles  
+                                '-dn',  # No data
+                                '-acodec', 'pcm_s16le',  # Convert to 16-bit PCM
+                                '-ar', '16000',          # 16kHz sample rate for Gladia
+                                '-ac', '1',              # Convert to mono
+                                '-f', 'wav',             # Force WAV format
+                                '-y',                    # Overwrite output
+                                output_path
+                            ]
+                            
+                            logger.info(f"Running FFmpeg command: {' '.join(ffmpeg_cmd)}")
+                            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, timeout=30)
+                            
+                            if result.returncode == 0:
+                                with open(output_path, 'rb') as f:
+                                    final_audio_data = f.read()
+                                logger.info(f"✅ FFmpeg conversion successful: {len(final_audio_data)} bytes WAV")
+                                
+                                # Verify the WAV file is valid and has audio
+                                verify_cmd = ['ffprobe', '-i', output_path, '-show_format', '-show_streams', '-v', 'quiet', '-print_format', 'json']
+                                verify_result = subprocess.run(verify_cmd, capture_output=True, text=True)
+                                if verify_result.returncode == 0:
+                                    probe_data = json.loads(verify_result.stdout)
+                                    streams = probe_data.get('streams', [])
+                                    if streams:
+                                        audio_stream = streams[0]
+                                        logger.info(f"   Audio stream: {audio_stream.get('codec_name')}, "
+                                                  f"{audio_stream.get('sample_rate')} Hz, "
+                                                  f"{audio_stream.get('channels')} channels, "
+                                                  f"duration: {audio_stream.get('duration', 'unknown')}s")
+                            else:
+                                logger.error(f"FFmpeg conversion failed with return code {result.returncode}")
+                                logger.error(f"FFmpeg stderr: {result.stderr}")
+                                logger.error(f"FFmpeg stdout: {result.stdout}")
+                                
+                                # Try a simpler conversion as fallback
+                                logger.info("Trying simpler FFmpeg conversion...")
+                                simple_cmd = [
+                                    'ffmpeg',
+                                    '-i', input_path,
+                                    '-acodec', 'pcm_s16le',
+                                    '-ar', '16000',
+                                    '-ac', '1',
+                                    '-y',
+                                    output_path
+                                ]
+                                
+                                retry_result = subprocess.run(simple_cmd, capture_output=True, text=True, timeout=30)
+                                if retry_result.returncode == 0:
+                                    with open(output_path, 'rb') as f:
+                                        final_audio_data = f.read()
+                                    logger.info(f"✅ Simpler FFmpeg conversion worked: {len(final_audio_data)} bytes")
+                                else:
+                                    logger.error(f"Simple conversion also failed: {retry_result.stderr}")
+                                    # Return error with details
+                                    return {
+                                        "error": f"Audio conversion failed. FFmpeg error: {result.stderr[:500]}",
+                                        "session_id": session_id,
+                                        "status": "error",
+                                        "debug_info": {
+                                            "input_size": len(raw_audio_data),
+                                            "detected_format": detected_format,
+                                            "ffmpeg_error": result.stderr[:500]
+                                        }
+                                    }
+                                
+                        except subprocess.TimeoutExpired:
+                            logger.error("FFmpeg conversion timed out")
+                            final_audio_data = raw_audio_data
+                        except FileNotFoundError:
+                            logger.error("FFmpeg not found! Cannot convert WebM to WAV")
+                            return {
+                                "error": "FFmpeg is required but not available. Cannot process WebM audio.",
+                                "session_id": session_id,
+                                "status": "error"
+                            }
+                        finally:
+                            # Cleanup temp files
+                            try:
+                                os.unlink(input_path)
+                                os.unlink(output_path)
+                            except Exception:
+                                pass
+                    else:
+                        # For other formats, use as-is
+                        final_audio_data = raw_audio_data
+                        logger.info(f"Using {detected_format} audio directly")
+                        
                 except Exception as e:
-                    logger.error(f"Failed to decode base64 audio data: {e}")
+                    logger.error(f"Failed to process audio data: {e}")
                     session_data["audio_decode_error"] = str(e)
             elif audio_data:
                 final_audio_data = audio_data
@@ -388,8 +514,21 @@ class GladiaMCPHandler:
                 # Use Gladia batch processing for Audio Intelligence features
                 audio_config = AudioConfiguration.from_dict(session_data.get("audio_config", {}))
                 
-                # Always try WebSocket first for better reliability with microphone audio
-                logger.info("Processing microphone audio with Gladia WebSocket (primary method)")
+                # Process audio data - detect format and handle appropriately
+                logger.info("🎤 Processing audio data...")
+                
+                # Check if this is WebM data (starts with specific bytes)
+                if final_audio_data and len(final_audio_data) > 4:
+                    is_webm = final_audio_data[:4] == b'\x1a\x45\xdf\xa3'
+                    is_riff = final_audio_data[:4] == b'RIFF'
+                    
+                    if is_webm:
+                        logger.info("📡 Detected WebM format - using direct WebSocket processing")
+                    elif is_riff:
+                        logger.info("📡 Detected WAV/RIFF format")
+                    else:
+                        logger.info(f"📡 Unknown format, first bytes: {final_audio_data[:4].hex()}")
+                
                 if session_data.get("gladia_session_id") and session_data.get("websocket_url"):
                     logger.info(f"WebSocket processing with session: {session_data.get('gladia_session_id')[:8]}...")
                     gladia_transcript = await self._process_audio_with_gladia(
@@ -399,34 +538,19 @@ class GladiaMCPHandler:
                     )
                     
                     if gladia_transcript:
-                        logger.info(f"WebSocket returned {len(gladia_transcript)} transcript segments")
+                        logger.info(f"✅ WebSocket returned {len(gladia_transcript)} transcript segments")
                         transcript_segments.extend(gladia_transcript)
                         session_data["transcript_segments"] = transcript_segments
+                        session_data["processing_method"] = "WebSocket API (Optimized for Microphone)"
                     else:
-                        logger.warning("WebSocket processing returned no transcript segments")
+                        logger.warning("❌ WebSocket processing returned no transcript segments")
+                        session_data["processing_method"] = "WebSocket API (No Results)"
                 else:
-                    logger.error(f"WebSocket processing failed: missing gladia_session_id or websocket_url")
+                    logger.error(f"❌ WebSocket processing failed: missing gladia_session_id or websocket_url")
+                    session_data["processing_method"] = "Failed (Missing WebSocket Data)"
                 
-                # Only try batch processing if WebSocket failed AND we have AI features enabled
-                if (not transcript_segments and 
-                    (audio_config.sentiment_analysis or audio_config.emotion_analysis or 
-                     audio_config.summarization or audio_config.named_entity_recognition or 
-                     audio_config.chapterization)):
-                    
-                    logger.info("WebSocket failed, trying Gladia batch mode for Audio Intelligence")
-                    batch_result = await self._process_audio_with_intelligence(
-                        final_audio_data, audio_config
-                    )
-                    
-                    if batch_result:
-                        transcript_segments = batch_result.get('transcript_segments', [])
-                        # Keep basic Gladia intelligence for comparison
-                        audio_intelligence_data = batch_result.get('intelligence_data', {})
-                        session_data["transcript_segments"] = transcript_segments
-                        session_data["gladia_audio_intelligence"] = audio_intelligence_data
-                        logger.info(f"Gladia batch processing complete: {len(transcript_segments)} segments")
-                    else:
-                        logger.warning("Both WebSocket and batch processing failed")
+                # Skip batch processing completely for microphone audio
+                logger.info("🚫 Skipping batch API processing (not suitable for microphone audio)")
                 
                 # Step 2: Enhanced AI Analysis using Azure OpenAI (HYBRID APPROACH)
                 if transcript_segments:
@@ -1059,6 +1183,14 @@ class GladiaMCPHandler:
             logger.info(f"Connecting to Gladia WebSocket for transcription: {websocket_url[:50]}...")
             logger.info(f"Audio data size: {len(audio_data)} bytes ({len(audio_data) / 1024:.1f}KB)")
             
+            # CRITICAL FIX: Strip WAV header if present
+            # WAV files have a 44-byte header that Gladia WebSocket doesn't expect
+            pcm_audio_data = audio_data
+            if len(audio_data) > 44 and audio_data[:4] == b'RIFF':
+                logger.info("Detected WAV format, stripping 44-byte header for raw PCM")
+                pcm_audio_data = audio_data[44:]  # Skip WAV header, use raw PCM
+                logger.info(f"PCM audio size after stripping header: {len(pcm_audio_data)} bytes")
+            
             # Use ping/pong to maintain connection stability
             async with websockets.connect(
                 websocket_url, 
@@ -1070,13 +1202,13 @@ class GladiaMCPHandler:
                 
                 # Send audio data in smaller chunks for better real-time processing
                 chunk_size = 4096  # 4KB chunks (smaller for better responsiveness)
-                total_chunks = len(audio_data) // chunk_size + (1 if len(audio_data) % chunk_size else 0)
+                total_chunks = len(pcm_audio_data) // chunk_size + (1 if len(pcm_audio_data) % chunk_size else 0)
                 
-                logger.info(f"Sending {len(audio_data)} bytes in {total_chunks} chunks of {chunk_size} bytes each")
+                logger.info(f"Sending {len(pcm_audio_data)} bytes in {total_chunks} chunks of {chunk_size} bytes each")
                 
                 # Send audio chunks with realistic timing
-                for i in range(0, len(audio_data), chunk_size):
-                    chunk = audio_data[i:i + chunk_size]
+                for i in range(0, len(pcm_audio_data), chunk_size):
+                    chunk = pcm_audio_data[i:i + chunk_size]
                     await websocket.send(chunk)
                     logger.debug(f"Sent chunk {i // chunk_size + 1}/{total_chunks} ({len(chunk)} bytes)")
                     

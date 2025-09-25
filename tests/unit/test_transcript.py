@@ -7,8 +7,8 @@ import base64
 import struct
 import math
 import pytest
-from domains.events.mcp.events_mcp_handler import events_mcp_handler
-from domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
+from api.domains.events.mcp.events_mcp_handler import events_mcp_handler
+from api.domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
 
 @pytest.mark.asyncio
 async def test_gladia_transcription():

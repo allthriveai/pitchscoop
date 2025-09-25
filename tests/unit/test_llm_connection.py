@@ -54,7 +54,7 @@ async def test_azure_openai_client():
     print("\n🔗 Testing Azure OpenAI client...")
     
     try:
-        from domains.shared.infrastructure.azure_openai_client import get_azure_openai_client
+        from api.domains.shared.infrastructure.azure_openai_client import get_azure_openai_client
         
         # Create client
         client = await get_azure_openai_client()
@@ -84,8 +84,8 @@ async def test_simple_completion():
     print("\n💬 Testing simple chat completion...")
     
     try:
-        from domains.shared.infrastructure.azure_openai_client import get_azure_openai_client
-        from domains.shared.value_objects.llm_request import LLMRequest, LLMMessage
+        from api.domains.shared.infrastructure.azure_openai_client import get_azure_openai_client
+        from api.domains.shared.value_objects.llm_request import LLMRequest, LLMMessage
         
         client = await get_azure_openai_client()
         
@@ -130,8 +130,8 @@ async def test_pitch_analysis_simple():
     print("\n🎯 Testing simple pitch analysis...")
     
     try:
-        from domains.shared.infrastructure.azure_openai_client import get_azure_openai_client
-        from domains.shared.value_objects.llm_request import LLMRequest, LLMMessage
+        from api.domains.shared.infrastructure.azure_openai_client import get_azure_openai_client
+        from api.domains.shared.value_objects.llm_request import LLMRequest, LLMMessage
         
         client = await get_azure_openai_client()
         

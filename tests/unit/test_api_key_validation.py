@@ -18,9 +18,9 @@ load_dotenv()
 # Add the api directory to Python path  
 sys.path.insert(0, str(Path(__file__).parent.parent / "api"))
 
-from domains.events.mcp.events_mcp_tools import execute_events_mcp_tool
-from domains.recordings.mcp.mcp_tools import execute_mcp_tool
-from domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
+from api.domains.events.mcp.events_mcp_tools import execute_events_mcp_tool
+from api.domains.recordings.mcp.mcp_tools import execute_mcp_tool
+from api.domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
 
 
 @pytest.mark.asyncio
@@ -125,7 +125,7 @@ async def test_current_api_key_status():
     print(f"API key format: {'✅ UUID-like' if len(api_key) == 36 and api_key.count('-') == 4 else '❌ Unexpected format'}")
     
     # Test with Gladia directly
-    from domains.recordings.value_objects.audio_configuration import AudioConfiguration
+    from api.domains.recordings.value_objects.audio_configuration import AudioConfiguration
     handler = GladiaMCPHandler()
     config = AudioConfiguration.create_default()
     

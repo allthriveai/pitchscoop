@@ -49,7 +49,7 @@ async def test_redis_connection():
 async def test_llamaindex_service():
     """Test LlamaIndex service configuration."""
     try:
-        from domains.indexing.services.llamaindex_service import llamaindex_service
+        from api.domains.indexing.services.llamaindex_service import llamaindex_service
         
         health = await llamaindex_service.health_check()
         print(f"✅ LlamaIndex service: {health['healthy']}")
@@ -123,7 +123,7 @@ async def test_dependencies():
 async def test_basic_indexing():
     """Test basic document indexing functionality."""
     try:
-        from domains.indexing.services.document_indexing_service import document_indexing_service
+        from api.domains.indexing.services.document_indexing_service import document_indexing_service
         
         # Test with minimal data
         test_session = {

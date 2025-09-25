@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PitchScoop Recording Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .recording-section {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .record-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            font-size: 18px;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        .record-btn:hover {
+            background: #c0392b;
+            transform: scale(1.05);
+        }
+        .record-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .recording {
+            background: #e74c3c;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .stop-btn {
+            background: #2c3e50;
+        }
+        .stop-btn:hover {
+            background: #34495e;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            min-height: 20px;
+        }
+        .status.info {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .form-group {
+            margin: 20px 0;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        .results {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        .audio-player {
+            width: 100%;
+            margin: 15px 0;
+        }
+        .playback-url {
+            word-break: break-all;
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .timer {
+            font-size: 24px;
+            color: #e74c3c;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .config-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #17a2b8;
+        }
+        .config-section h3 {
+            margin-top: 0;
+            color: #17a2b8;
+        }
+        .checkbox-group {
+            margin: 10px 0;
+        }
+        input[type="checkbox"] {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 PitchScoop Recording Test</h1>
+        
+        <div class="config-section">
+            <h3>Recording Configuration</h3>
+            <div class="form-group">
+                <label for="teamName">Team Name:</label>
+                <input type="text" id="teamName" value="Test Team" placeholder="Enter team name">
+            </div>
+            <div class="form-group">
+                <label for="pitchTitle">Pitch Title:</label>
+                <input type="text" id="pitchTitle" value="Browser Recording Test" placeholder="Enter pitch title">
+            </div>
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" id="showAdvanced"> Show advanced options
+                </label>
+            </div>
+        </div>
+
+        <div class="recording-section">
+            <div class="timer" id="timer">00:00</div>
+            <button id="startBtn" class="record-btn">🔴 Start Recording</button>
+            <button id="stopBtn" class="record-btn stop-btn" disabled>⏹️ Stop Recording</button>
+        </div>
+
+        <div id="status" class="status info">
+            Ready to record. Click "Start Recording" to begin.
+        </div>
+
+        <div id="results" class="results" style="display:none;">
+            <h3>📊 Recording Results</h3>
+            <div id="sessionInfo"></div>
+            <div id="audioPlayer"></div>
+            <div id="playbackUrl"></div>
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let recordedChunks = [];
+        let stream;
+        let startTime;
+        let timerInterval;
+        let recordedBlob;
+        
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const status = document.getElementById('status');
+        const results = document.getElementById('results');
+        const timer = document.getElementById('timer');
+        
+        // API endpoint - using the simple test server
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        function updateStatus(message, type = 'info') {
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+        
+        function updateTimer() {
+            if (!startTime) return;
+            const elapsed = Date.now() - startTime;
+            const minutes = Math.floor(elapsed / 60000);
+            const seconds = Math.floor((elapsed % 60000) / 1000);
+            timer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        async function startRecording() {
+            try {
+                // Request microphone access with improved constraints for better quality
+                updateStatus('Requesting microphone access...', 'warning');
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: { ideal: 48000, min: 16000 },  // Higher sample rate for better quality
+                        channelCount: 1,
+                        echoCancellation: false,  // Disable for better raw audio quality
+                        noiseSuppression: false,  // Disable for better raw audio quality
+                        autoGainControl: false,   // Disable for consistent volume
+                        sampleSize: 16
+                    }
+                });
+                
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm;codecs=opus'
+                });
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    recordedBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+                    clearInterval(timerInterval);
+                    
+                    // Create local audio player
+                    const audioURL = URL.createObjectURL(recordedBlob);
+                    const audioPlayer = document.getElementById('audioPlayer');
+                    audioPlayer.innerHTML = `
+                        <h4>🎵 Recorded Audio (${Math.round(recordedBlob.size / 1024)}KB)</h4>
+                        <audio controls class="audio-player">
+                            <source src="${audioURL}" type="audio/webm">
+                            Your browser does not support the audio element.
+                        </audio>
+                    `;
+                    
+                    updateStatus('Recording completed! Uploading to PitchScoop automatically...', 'info');
+                    
+                    // Always auto-upload - no manual upload needed
+                    await uploadRecording();
+                };
+                
+                // Start recording
+                mediaRecorder.start(100); // Record in 100ms chunks
+                startTime = Date.now();
+                timerInterval = setInterval(updateTimer, 100);
+                
+                startBtn.disabled = true;
+                startBtn.className = 'record-btn recording';
+                stopBtn.disabled = false;
+                
+                updateStatus('🔴 Recording... Speak into your microphone!', 'info');
+                
+            } catch (error) {
+                updateStatus(`Failed to start recording: ${error.message}`, 'error');
+                console.error('Recording error:', error);
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                stream.getTracks().forEach(track => track.stop());
+                
+                startBtn.disabled = false;
+                startBtn.className = 'record-btn';
+                stopBtn.disabled = true;
+                
+                results.style.display = 'block';
+            }
+        }
+        
+        async function uploadRecording() {
+            if (!recordedBlob) {
+                updateStatus('No recording to upload!', 'error');
+                return;
+            }
+            
+            try {
+                updateStatus('Uploading to PitchScoop...', 'warning');
+                
+                const teamName = document.getElementById('teamName').value || 'Test Team';
+                const pitchTitle = document.getElementById('pitchTitle').value || 'Browser Recording Test';
+                
+                // Step 1: Create an event
+                updateStatus('Creating event...', 'warning');
+                const eventResponse = await fetch(`${API_BASE_URL}/mcp/execute`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tool: 'events.create_event',
+                        arguments: {
+                            event_type: 'individual_practice',
+                            event_name: 'Browser Recording Test Event',
+                            description: 'Test event created from browser recording',
+                            max_participants: 1,
+                            duration_minutes: 10
+                        }
+                    })
+                });
+                
+                const eventData = await eventResponse.json();
+                if (eventData.error) {
+                    throw new Error(`Event creation failed: ${eventData.error}`);
+                }
+                
+                const eventId = eventData.event_id;
+                updateStatus(`Event created: ${eventId}`, 'info');
+                
+                // Step 2: Start recording session
+                updateStatus('Starting recording session...', 'warning');
+                const sessionResponse = await fetch(`${API_BASE_URL}/mcp/execute`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tool: 'pitches.start_recording',
+                        arguments: {
+                            event_id: eventId,
+                            team_name: teamName,
+                            pitch_title: pitchTitle
+                        }
+                    })
+                });
+                
+                const sessionData = await sessionResponse.json();
+                if (sessionData.error) {
+                    throw new Error(`Session creation failed: ${sessionData.error}`);
+                }
+                
+                const sessionId = sessionData.session_id;
+                updateStatus(`Recording session created: ${sessionId}`, 'info');
+                
+                // Step 3: Send WebM directly to backend for proper FFmpeg conversion
+                updateStatus('Preparing audio for backend conversion...', 'warning');
+                
+                // Send WebM directly to backend - let FFmpeg handle conversion
+                const reader = new FileReader();
+                
+                reader.onload = async () => {
+                    const base64Audio = reader.result.split(',')[1]; // Remove data:audio/webm;base64, prefix
+                    
+                    // Step 4: Stop recording with WebM audio - backend will convert to WAV
+                    updateStatus('Uploading audio (WebM → WAV conversion on backend)...', 'warning');
+                    const stopResponse = await fetch(`${API_BASE_URL}/mcp/execute`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            tool: 'pitches.stop_recording',
+                            arguments: {
+                                session_id: sessionId,
+                                audio_data_base64: base64Audio,
+                                audio_format: 'webm'  // Backend will convert this to WAV using FFmpeg
+                            }
+                        })
+                    });
+                    
+                    const stopData = await stopResponse.json();
+                    if (stopData.error) {
+                        throw new Error(`Upload failed: ${stopData.error}`);
+                    }
+                    
+                    // Step 5: Get playback URL
+                    updateStatus('Generating playback URL...', 'warning');
+                    const playbackResponse = await fetch(`${API_BASE_URL}/mcp/execute`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            tool: 'pitches.get_playback_url',
+                            arguments: {
+                                session_id: sessionId,
+                                expires_hours: 24
+                            }
+                        })
+                    });
+                    
+                    const playbackData = await playbackResponse.json();
+                    
+                    // Display results
+                    const sessionInfo = document.getElementById('sessionInfo');
+                    
+                    // Check for transcript
+                    let transcriptHtml = '';
+                    if (stopData.transcript) {
+                        const transcript = stopData.transcript;
+                        const totalText = transcript.total_text || '';
+                        const segmentCount = transcript.segments_count || 0;
+                        
+                        if (totalText.trim()) {
+                            transcriptHtml = `
+                                <h4>📝 Transcript</h4>
+                                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                                    <strong>"${totalText}"</strong>
+                                </div>
+                                <p><small>Segments: ${segmentCount}</small></p>
+                            `;
+                        } else if (segmentCount > 0) {
+                            transcriptHtml = `
+                                <h4>📝 Transcript</h4>
+                                <p><em>Processing completed but no text detected (${segmentCount} segments processed)</em></p>
+                            `;
+                        } else {
+                            transcriptHtml = `
+                                <h4>📝 Transcript</h4>
+                                <p><em>No transcript segments detected - this may happen with synthetic audio or background noise</em></p>
+                            `;
+                        }
+                    }
+                    
+                    sessionInfo.innerHTML = `
+                        <h4>✅ Upload Successful!</h4>
+                        <p><strong>Session ID:</strong> ${sessionId}</p>
+                        <p><strong>Event ID:</strong> ${eventId}</p>
+                        <p><strong>Team:</strong> ${teamName}</p>
+                        <p><strong>Title:</strong> ${pitchTitle}</p>
+                        <p><strong>Status:</strong> ${stopData.status}</p>
+                        <p><strong>File Size:</strong> ${Math.round(recordedBlob.size / 1024)}KB (WebM → WAV converted)</p>
+                        ${transcriptHtml}
+                    `;
+                    
+                    // Display playback URL - check both stopData and playbackData
+                    const playbackUrl = document.getElementById('playbackUrl');
+                    let audioUrl = null;
+                    
+                    // First try to get URL from stopData (more reliable)
+                    if (stopData.audio && stopData.audio.playback_url) {
+                        audioUrl = stopData.audio.playback_url;
+                    } else if (playbackData && playbackData.playback_url) {
+                        audioUrl = playbackData.playback_url;
+                    }
+                    
+                    if (audioUrl) {
+                        playbackUrl.innerHTML = `
+                            <h4>🔗 MinIO Playback URL:</h4>
+                            <div class="playback-url">${audioUrl}</div>
+                            <p><small>This URL expires in 24 hours</small></p>
+                            <audio controls class="audio-player">
+                                <source src="${audioUrl}" type="audio/wav">
+                                Your browser does not support the audio element.
+                            </audio>
+                        `;
+                    } else {
+                        playbackUrl.innerHTML = '<p>⚠️ No playback URL available</p>';
+                    }
+                    
+                    updateStatus('🎉 Recording successfully uploaded to MinIO!', 'info');
+                    
+                    // Step 6: Call Real AI Scoring
+                    setTimeout(async () => {
+                        updateStatus('🤖 Running AI scoring analysis...', 'warning');
+                        console.log('Calling real scoring API for session:', sessionId);
+                        
+                        try {
+                            const scoreResponse = await fetch(`${API_BASE_URL}/mcp/execute`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    tool: 'analysis.score_pitch',
+                                    arguments: {
+                                        session_id: sessionId,
+                                        event_id: eventId
+                                    }
+                                })
+                            });
+                            
+                            console.log('Score response status:', scoreResponse.status);
+                            const scoreData = await scoreResponse.json();
+                            console.log('Full score response data:', scoreData);
+                            
+                            if (scoreData.error) {
+                                console.error('Scoring error:', scoreData.error);
+                                updateStatus('⚠️ Scoring failed: ' + scoreData.error, 'warning');
+                            } else if (scoreData.scores && scoreData.scores.text) {
+                                // Convert the real API format to our display format
+                                // Collect all strengths and improvements from each category
+                                const allStrengths = [];
+                                const allImprovements = [];
+                                
+                                // Collect from each scoring category
+                                ['idea', 'technical_implementation', 'tool_use', 'presentation'].forEach(category => {
+                                    if (scoreData.scores.text[category]) {
+                                        if (scoreData.scores.text[category].strengths) {
+                                            allStrengths.push(...scoreData.scores.text[category].strengths);
+                                        }
+                                        if (scoreData.scores.text[category].areas_of_improvement) {
+                                            allImprovements.push(...scoreData.scores.text[category].areas_of_improvement);
+                                        }
+                                    }
+                                });
+                                
+                                // Calculate total score
+                                const idea = scoreData.scores.text?.idea?.score || 0;
+                                const technical = scoreData.scores.text?.technical_implementation?.score || 0;
+                                const tools = scoreData.scores.text?.tool_use?.score || 0;
+                                const presentation = scoreData.scores.text?.presentation?.score || 0;
+                                const totalScore = idea + technical + tools + presentation;
+                                
+                                const realScores = {
+                                    summary: {
+                                        total_score: totalScore,
+                                        idea_score: idea,
+                                        technical_score: technical,
+                                        tools_score: tools,
+                                        presentation_score: presentation
+                                    },
+                                    analysis: {
+                                        strengths: allStrengths,
+                                        improvements: allImprovements
+                                    },
+                                    feedback: scoreData.scores.text?.overall?.feedback || 
+                                             scoreData.scores.text?.idea?.reasoning_capabilities || 
+                                             'Complete your pitch with clear ideas, technical details, and tool usage for better scoring.'
+                                };
+                                
+                                console.log('Formatted scores for display:', realScores);
+                                displayScoringResults(realScores);
+                                updateStatus('✅ AI Scoring Complete!', 'info');
+                            } else {
+                                console.warn('Unexpected scoring response format:', scoreData);
+                                updateStatus('⚠️ Scoring returned unexpected format', 'warning');
+                            }
+                        } catch (error) {
+                            console.error('Scoring request failed:', error);
+                            updateStatus('⚠️ Scoring service unavailable: ' + error.message, 'warning');
+                        }
+                    }, 2000); // Wait 2 seconds for transcript to be saved
+                };
+                
+                reader.readAsDataURL(recordedBlob);  // Send WebM directly
+                
+            } catch (error) {
+                updateStatus(`Upload failed: ${error.message}`, 'error');
+                console.error('Upload error:', error);
+            }
+        }
+        
+        // Mock scoring function for demo (defined early so it's available)
+        function generateMockScore(transcript) {
+            const wordCount = transcript ? transcript.split(' ').length : 0;
+            const baseScore = Math.min(wordCount * 1.5, 60);
+            const randomFactor = Math.random() * 20;
+            const totalScore = Math.round(baseScore + randomFactor);
+            
+            return {
+                summary: {
+                    total_score: totalScore,
+                    idea_score: Math.round(totalScore * 0.25),
+                    technical_score: Math.round(totalScore * 0.27),
+                    tools_score: Math.round(totalScore * 0.23),
+                    presentation_score: Math.round(totalScore * 0.25)
+                },
+                analysis: {
+                    strengths: [
+                        "Clear articulation of the concept",
+                        "Good use of technical terminology",
+                        wordCount > 30 ? "Comprehensive coverage" : "Concise presentation"
+                    ],
+                    improvements: [
+                        "Could provide more implementation details",
+                        "Consider demonstrating tool integrations",
+                        "Expand on technical approach"
+                    ]
+                },
+                feedback: `Demo scoring based on ${wordCount} words. Real AI scoring available with longer recordings.`
+            };
+        }
+
+        // Event listeners
+        // Add function to display scoring results
+        function displayScoringResults(scoreData) {
+            const resultsDiv = document.getElementById('results');
+            
+            // Create scoring section
+            const scoringHtml = `
+                <div style="margin-top: 30px; padding: 20px; background: #f0f8ff; border-radius: 8px; border-left: 4px solid #4CAF50;">
+                    <h3>🏆 AI Scoring Results</h3>
+                    
+                    ${scoreData.summary ? `
+                        <div style="background: white; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                            <h4 style="color: #2c3e50; margin-bottom: 15px;">Overall Score: 
+                                <span style="font-size: 28px; color: #27ae60;">${scoreData.summary.total_score || 0}/100</span>
+                            </h4>
+                            
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 20px 0;">
+                                ${scoreData.summary.idea_score !== undefined ? `
+                                    <div style="padding: 10px; background: #ecf0f1; border-radius: 5px;">
+                                        <strong>💡 Idea:</strong> ${scoreData.summary.idea_score}/25
+                                    </div>
+                                ` : ''}
+                                ${scoreData.summary.technical_score !== undefined ? `
+                                    <div style="padding: 10px; background: #ecf0f1; border-radius: 5px;">
+                                        <strong>🔧 Technical:</strong> ${scoreData.summary.technical_score}/25
+                                    </div>
+                                ` : ''}
+                                ${scoreData.summary.tools_score !== undefined ? `
+                                    <div style="padding: 10px; background: #ecf0f1; border-radius: 5px;">
+                                        <strong>🛠️ Tool Use:</strong> ${scoreData.summary.tools_score}/25
+                                    </div>
+                                ` : ''}
+                                ${scoreData.summary.presentation_score !== undefined ? `
+                                    <div style="padding: 10px; background: #ecf0f1; border-radius: 5px;">
+                                        <strong>🎤 Presentation:</strong> ${scoreData.summary.presentation_score}/25
+                                    </div>
+                                ` : ''}
+                            </div>
+                            
+                            <div style="margin-top: 20px;">
+                                <h5 style="color: #27ae60;">✅ Strengths:</h5>
+                                ${scoreData.analysis && scoreData.analysis.strengths && scoreData.analysis.strengths.length > 0 ? `
+                                    <ul style="color: #555;">
+                                        ${scoreData.analysis.strengths.map(s => `<li>${s}</li>`).join('')}
+                                    </ul>
+                                ` : `
+                                    <p style="color: #999; font-style: italic;">No strengths identified yet. Record a complete pitch to receive feedback.</p>
+                                `}
+                            </div>
+                            
+                            <div style="margin-top: 20px;">
+                                <h5 style="color: #e67e22;">📈 Areas for Improvement:</h5>
+                                ${scoreData.analysis && scoreData.analysis.improvements && scoreData.analysis.improvements.length > 0 ? `
+                                    <ul style="color: #555;">
+                                        ${scoreData.analysis.improvements.map(i => `<li>${i}</li>`).join('')}
+                                    </ul>
+                                ` : `
+                                    <p style="color: #999; font-style: italic;">Record your pitch to receive improvement suggestions.</p>
+                                `}
+                            </div>
+                            
+                            <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 5px;">
+                                <h5 style="color: #856404;">💭 AI Feedback:</h5>
+                                <p style="color: #666; margin: 5px 0;">${scoreData.feedback || 'Complete your pitch with clear ideas, technical details, and tool usage for detailed feedback.'}</p>
+                            </div>
+                        </div>
+                    ` : `
+                        <p>Scoring data not available. The pitch may be too short for meaningful analysis.</p>
+                    `}
+                    
+                    <p style="color: #7f8c8d; font-size: 12px; margin-top: 15px;">
+                        <em>Scored at: ${new Date().toLocaleString()}</em>
+                    </p>
+                </div>
+            `;
+            
+            // Add to results
+            const scoringDiv = document.createElement('div');
+            scoringDiv.innerHTML = scoringHtml;
+            resultsDiv.appendChild(scoringDiv);
+        }
+        
+        startBtn.addEventListener('click', startRecording);
+        stopBtn.addEventListener('click', stopRecording);
+        
+        // Check if browser supports recording
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            updateStatus('Your browser does not support audio recording!', 'error');
+            startBtn.disabled = true;
+        }
+    </script>
+</body>
+</html>

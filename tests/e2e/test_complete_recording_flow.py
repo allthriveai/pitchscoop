@@ -22,9 +22,9 @@ import pytest
 # Add the api directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / "api"))
 
-from domains.events.mcp.events_mcp_tools import execute_events_mcp_tool
-from domains.recordings.mcp.mcp_tools import execute_mcp_tool
-from domains.recordings.infrastructure.minio_audio_storage import MinIOAudioStorage
+from api.domains.events.mcp.events_mcp_tools import execute_events_mcp_tool
+from api.domains.recordings.mcp.mcp_tools import execute_mcp_tool
+from api.domains.recordings.infrastructure.minio_audio_storage import MinIOAudioStorage
 
 
 def generate_test_audio(duration_seconds=2.0, sample_rate=16000, frequency=440):

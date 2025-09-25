@@ -19,8 +19,8 @@ import base64
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timedelta
 
-from domains.scoring.mcp.scoring_mcp_handler import ScoringMCPHandler
-from domains.scoring.mcp.scoring_mcp_tools import (
+from api.domains.scoring.mcp.scoring_mcp_handler import ScoringMCPHandler
+from api.domains.scoring.mcp.scoring_mcp_tools import (
     execute_scoring_mcp_tool,
     get_scoring_tool_schema,
     list_scoring_tools,

@@ -11,9 +11,9 @@ Comprehensive test for Gladia recording workflow
 """
 import asyncio
 import sys
-sys.path.append('/app')
-from domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
-from domains.events.mcp.events_mcp_handler import EventsMCPHandler
+sys.path.append('/Users/allierays/Sites/pitchscoop/api')
+from api.domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
+from api.domains.events.mcp.events_mcp_handler import EventsMCPHandler
 import base64
 import struct
 import math

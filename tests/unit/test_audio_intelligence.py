@@ -10,9 +10,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "api"))
 Test Gladia Audio Intelligence features
 """
 import asyncio
-from domains.recordings.value_objects.audio_configuration import AudioConfiguration
-from domains.events.mcp.events_mcp_handler import events_mcp_handler
-from domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
+from api.domains.recordings.value_objects.audio_configuration import AudioConfiguration
+from api.domains.events.mcp.events_mcp_handler import events_mcp_handler
+from api.domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
 
 async def test_audio_intelligence():
     print('🧠 Testing Gladia Audio Intelligence Features')

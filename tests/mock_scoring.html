@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Scoring Demo</title>
+</head>
+<body>
+    <script>
+        // Mock scoring function that generates realistic-looking scores
+        function generateMockScore(transcript) {
+            const wordCount = transcript ? transcript.split(' ').length : 0;
+            
+            // Generate scores based on transcript length (simple heuristic)
+            const baseScore = Math.min(wordCount * 2, 60); // Max 60 base
+            const randomFactor = Math.random() * 20; // Add 0-20 random points
+            
+            const totalScore = Math.round(baseScore + randomFactor);
+            
+            // Distribute across categories
+            const distribution = {
+                idea: 0.25 + (Math.random() * 0.1 - 0.05),
+                technical: 0.25 + (Math.random() * 0.1 - 0.05),
+                tools: 0.25 + (Math.random() * 0.1 - 0.05),
+                presentation: 0.25 + (Math.random() * 0.1 - 0.05)
+            };
+            
+            // Normalize
+            const sum = Object.values(distribution).reduce((a, b) => a + b, 0);
+            Object.keys(distribution).forEach(key => {
+                distribution[key] = distribution[key] / sum;
+            });
+            
+            return {
+                summary: {
+                    total_score: totalScore,
+                    idea_score: Math.round(distribution.idea * totalScore * 0.25),
+                    technical_score: Math.round(distribution.technical * totalScore * 0.25),
+                    tools_score: Math.round(distribution.tools * totalScore * 0.25),
+                    presentation_score: Math.round(distribution.presentation * totalScore * 0.25)
+                },
+                analysis: {
+                    strengths: [
+                        "Clear articulation of the concept",
+                        "Good use of technical terminology",
+                        wordCount > 50 ? "Comprehensive coverage of the topic" : "Concise presentation"
+                    ],
+                    improvements: [
+                        "Could provide more specific implementation details",
+                        "Consider demonstrating more tool integrations",
+                        wordCount < 100 ? "Expand on the technical approach" : "Could be more concise in certain areas"
+                    ]
+                },
+                feedback: `This is a mock score based on transcript length (${wordCount} words). For real AI-powered scoring, configure your OpenAI API key in the .env file.`
+            };
+        }
+        
+        // Replace the scoring call with mock scoring
+        window.mockScoring = generateMockScore;
+        
+        console.log('Mock scoring loaded. Example:', generateMockScore("This is a test pitch with some content"));
+    </script>
+</body>
+</html>

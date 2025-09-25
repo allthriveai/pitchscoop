@@ -18,10 +18,10 @@ async def test_service_imports():
     
     try:
         # Test core imports
-        from domains.indexing.services.llamaindex_service import llamaindex_service
+        from api.domains.indexing.services.llamaindex_service import llamaindex_service
         print("✅ LlamaIndex service imported successfully")
         
-        from domains.indexing.services.document_indexing_service import document_indexing_service  
+        from api.domains.indexing.services.document_indexing_service import document_indexing_service  
         print("✅ Document indexing service imported successfully")
         
         return True
@@ -39,7 +39,7 @@ async def test_service_health():
     print("=" * 40)
     
     try:
-        from domains.indexing.services.llamaindex_service import llamaindex_service
+        from api.domains.indexing.services.llamaindex_service import llamaindex_service
         
         # Test health check
         health = await llamaindex_service.health_check()
@@ -66,7 +66,7 @@ async def test_redis_operations():
     print("=" * 40)
     
     try:
-        from domains.indexing.services.llamaindex_service import llamaindex_service
+        from api.domains.indexing.services.llamaindex_service import llamaindex_service
         
         # Test Redis connection
         try:
@@ -108,7 +108,7 @@ async def test_index_creation():
     print("=" * 40)
     
     try:
-        from domains.indexing.services.llamaindex_service import llamaindex_service
+        from api.domains.indexing.services.llamaindex_service import llamaindex_service
         
         test_event_id = "test_event_health_check"
         test_doc_type = "test_transcript"

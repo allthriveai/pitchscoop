@@ -6,14 +6,14 @@ import asyncio
 import json
 import sys
 import os
-sys.path.append('/app')
+sys.path.append('/Users/allierays/Sites/pitchscoop/api')
 
 async def list_gladia_sessions():
     print("📋 Listing all sessions in Gladia handler...")
     print("=" * 60)
     
     try:
-        from domains.recordings.mcp.gladia_mcp_handler import gladia_mcp_handler
+        from api.domains.recordings.mcp.gladia_mcp_handler import gladia_mcp_handler
         
         # Get all sessions
         sessions = await gladia_mcp_handler.list_sessions()

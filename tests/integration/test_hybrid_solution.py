@@ -12,9 +12,9 @@ import struct
 import math
 import pytest
 
-from domains.events.mcp.events_mcp_handler import events_mcp_handler
-from domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
-from domains.recordings.mcp.enhanced_analysis_mcp_tools import execute_enhanced_analysis_mcp_tool
+from api.domains.events.mcp.events_mcp_handler import events_mcp_handler
+from api.domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
+from api.domains.recordings.mcp.enhanced_analysis_mcp_tools import execute_enhanced_analysis_mcp_tool
 
 
 def generate_sample_audio(duration=30.0, sample_rate=16000):

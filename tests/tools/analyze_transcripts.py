@@ -4,7 +4,7 @@ Analyze transcript segments in detail to understand accuracy issues
 """
 import asyncio
 import json
-from domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
+from api.domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
 
 async def analyze_transcript_quality():
     print('🔍 Analyzing Transcript Quality Issues')

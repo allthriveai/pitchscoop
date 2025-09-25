@@ -14,8 +14,8 @@ load_dotenv()
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "api"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "api"))
-from domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
-from domains.recordings.value_objects.audio_configuration import AudioConfiguration
+from api.domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
+from api.domains.recordings.value_objects.audio_configuration import AudioConfiguration
 
 
 async def test_api_key_format():

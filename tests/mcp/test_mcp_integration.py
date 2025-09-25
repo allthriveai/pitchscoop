@@ -18,7 +18,7 @@ from pathlib import Path
 # Add the api directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / "api"))
 
-from domains.recordings.mcp.mcp_tools import execute_mcp_tool, list_available_tools
+from api.domains.recordings.mcp.mcp_tools import execute_mcp_tool, list_available_tools
 import pytest
 
 

@@ -25,7 +25,7 @@ from pydantic import BaseModel
 import uvicorn
 
 # Import our MCP tools
-from domains.recordings.mcp.mcp_tools import execute_mcp_tool, list_available_tools, get_tools_summary
+from api.domains.recordings.mcp.mcp_tools import execute_mcp_tool, list_available_tools, get_tools_summary
 
 app = FastAPI(
     title="CanaryQA MCP Test Server",

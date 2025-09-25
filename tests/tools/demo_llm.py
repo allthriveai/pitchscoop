@@ -23,8 +23,8 @@ from datetime import datetime
 # Add the parent directory to Python path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "api"))
 
-from domains.shared.infrastructure.azure_openai_client import get_azure_openai_client
-from domains.shared.value_objects.llm_request import LLMRequest, LLMMessage
+from api.domains.shared.infrastructure.azure_openai_client import get_azure_openai_client
+from api.domains.shared.value_objects.llm_request import LLMRequest, LLMMessage
 
 
 async def demo_simple_chat():

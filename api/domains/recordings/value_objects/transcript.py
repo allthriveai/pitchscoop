@@ -72,6 +72,12 @@ class TranscriptSegment:
         except (KeyError, TypeError, ValueError):
             return None
     
+    @classmethod
+    def from_stt_message(cls, message: Dict[str, Any], provider: str = 'gladia') -> Optional['TranscriptSegment']:
+        """Create from STT provider message (unified interface)."""
+        # This method handles messages from Gladia STT provider
+        return cls.from_gladia_message(message)
+    
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary representation."""
         return {

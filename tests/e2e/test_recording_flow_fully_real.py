@@ -27,8 +27,8 @@ load_dotenv()
 # Add the api directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / "api"))
 
-from domains.events.mcp.events_mcp_tools import execute_events_mcp_tool
-from domains.recordings.mcp.mcp_tools import execute_mcp_tool
+from api.domains.events.mcp.events_mcp_tools import execute_events_mcp_tool
+from api.domains.recordings.mcp.mcp_tools import execute_mcp_tool
 
 
 def generate_test_audio(duration_seconds=2.0, sample_rate=16000, frequency=440):
@@ -255,7 +255,7 @@ async def test_prerequisites():
     
     # Check MinIO connection (if configured)
     try:
-        from domains.recordings.infrastructure.minio_audio_storage import minio_audio_storage
+        from api.domains.recordings.infrastructure.minio_audio_storage import minio_audio_storage
         # This will attempt to connect to MinIO
         print("⚠️  MinIO connection test would go here")
         print("✅ MinIO assumed available (implement real check if needed)")

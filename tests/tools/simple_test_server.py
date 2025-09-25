@@ -24,7 +24,7 @@ import threading
 from pathlib import Path
 
 # Import our MCP tools
-from domains.recordings.mcp.mcp_tools import execute_mcp_tool, list_available_tools
+from api.domains.recordings.mcp.mcp_tools import execute_mcp_tool, list_available_tools
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):

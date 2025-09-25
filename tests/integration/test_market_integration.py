@@ -24,7 +24,7 @@ from datetime import datetime
 # Add the domains directory to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'domains'))
 
-from domains.market.mcp.market_mcp_tools import execute_market_mcp_tool
+from api.domains.market.mcp.market_mcp_tools import execute_market_mcp_tool
 
 
 async def test_health_check():

@@ -27,9 +27,9 @@ load_dotenv()
 # Add the api directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / "api"))
 
-from domains.events.mcp.events_mcp_tools import execute_events_mcp_tool
-from domains.recordings.mcp.mcp_tools import execute_mcp_tool
-from domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
+from api.domains.events.mcp.events_mcp_tools import execute_events_mcp_tool
+from api.domains.recordings.mcp.mcp_tools import execute_mcp_tool
+from api.domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
 
 
 def generate_test_audio(duration_seconds=2.0, sample_rate=16000, frequency=440):
@@ -307,7 +307,7 @@ async def test_gladia_session_creation_direct():
     if not api_key:
         pytest.skip("GLADIA_API_KEY not found - skipping direct API test")
     
-    from domains.recordings.value_objects.audio_configuration import AudioConfiguration
+    from api.domains.recordings.value_objects.audio_configuration import AudioConfiguration
     
     handler = GladiaMCPHandler()
     config = AudioConfiguration.create_default()

@@ -41,8 +41,9 @@ try:
         else:
             return {"error": f"Unknown events tool: {tool_name}"}
     
+    
     async def execute_mcp_tool(tool, args):
-        # Try recordings domain first
+        # Try recordings domain
         if tool.startswith('pitches.'):
             return await recordings_execute(tool, args)
         # Try events domain 
@@ -67,6 +68,7 @@ try:
         tools.extend([tool["name"] for tool in USERS_TOOLS])
         tools.extend(list(SCORING_MCP_TOOLS.keys()))
         tools.extend([tool["name"] for tool in LEADERBOARD_MCP_TOOLS])
+        
         return tools
         
 except ImportError as e:
@@ -310,6 +312,7 @@ async def serve_test_page():
     from fastapi.responses import FileResponse
     return FileResponse("test_recording.html")
 
+
 @app.get("/interface")
 async def serve_interface_page():
     from fastapi.responses import FileResponse
@@ -324,3 +327,34 @@ async def serve_scoring_page():
 async def serve_leaderboard_page():
     from fastapi.responses import FileResponse
     return FileResponse("leaderboard_interface.html")
+
+@app.get("/export")
+async def serve_data_export_page():
+    from fastapi.responses import FileResponse
+    return FileResponse("data_export.html")
+
+@app.post("/api/populate-demo-data")
+async def populate_mcp_hackathon_demo():
+    """Populate Redis with MCP hackathon demo scoring data"""
+    try:
+        # Import and execute the demo population function
+        import sys
+        import os
+        sys.path.append(os.path.dirname(os.path.abspath(__file__ + "/..")))
+        
+        from populate_mcp_hackathon_demo import populate_demo_data
+        await populate_demo_data()
+        
+        return {
+            "success": True,
+            "message": "MCP hackathon demo data populated successfully",
+            "event_id": "mcp-hackathon",
+            "teams_created": 12,
+            "instructions": "Visit http://localhost:8000/leaderboard and enter 'mcp-hackathon' as the Event ID"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to populate demo data"
+        }

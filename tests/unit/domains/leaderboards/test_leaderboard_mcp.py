@@ -9,7 +9,7 @@ from your existing scoring system.
 import asyncio
 import pytest
 
-from domains.leaderboards.mcp.leaderboard_mcp_tools import execute_leaderboard_mcp_tool
+from api.domains.leaderboards.mcp.leaderboard_mcp_tools import execute_leaderboard_mcp_tool
 
 
 @pytest.mark.asyncio

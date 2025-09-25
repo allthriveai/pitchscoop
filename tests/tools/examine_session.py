@@ -4,7 +4,7 @@ Examine session details to debug transcript issue
 """
 import asyncio
 import json
-from domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
+from api.domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
 
 async def examine_latest_session():
     print('🔍 Examining Latest Session')

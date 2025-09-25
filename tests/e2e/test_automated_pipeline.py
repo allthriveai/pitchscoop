@@ -60,7 +60,7 @@ async def test_full_automation():
         print("2. 🧠 Testing Automatic Scoring:")
         print("-" * 40)
         
-        from domains.recordings.mcp.gladia_mcp_handler import gladia_mcp_handler
+        from api.domains.recordings.mcp.gladia_mcp_handler import gladia_mcp_handler
         
         # Test the automatic scoring trigger method directly
         class MockLogger:
@@ -114,7 +114,7 @@ async def test_full_automation():
         print("4. 🏆 Testing Leaderboard with Automated Data:")
         print("-" * 40)
         
-        from domains.leaderboards.mcp.leaderboard_mcp_tools import execute_leaderboard_mcp_tool
+        from api.domains.leaderboards.mcp.leaderboard_mcp_tools import execute_leaderboard_mcp_tool
         
         result = await execute_leaderboard_mcp_tool('leaderboard.get_rankings', {
             'event_id': 'automation-test-2024',

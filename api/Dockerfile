@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     make \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip and install wheel for better dependency resolution

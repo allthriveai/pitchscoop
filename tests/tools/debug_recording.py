@@ -6,8 +6,8 @@ import asyncio
 import base64
 import struct
 import math
-from domains.events.mcp.events_mcp_handler import events_mcp_handler
-from domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
+from api.domains.events.mcp.events_mcp_handler import events_mcp_handler
+from api.domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
 
 def generate_speech_audio(duration=3.0, sample_rate=16000):
     """Generate more realistic speech-like audio"""

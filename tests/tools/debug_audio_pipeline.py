@@ -6,7 +6,7 @@ import asyncio
 import base64
 import tempfile
 import os
-from domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
+from api.domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
 
 async def debug_audio_pipeline():
     print('🔍 Debugging Audio Processing Pipeline')

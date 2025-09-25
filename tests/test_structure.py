@@ -13,11 +13,11 @@ def test_import_paths():
     """Test that we can import from the main codebase."""
     try:
         # Test importing from domains
-        from domains.events.mcp.events_mcp_tools import EVENTS_MCP_TOOLS
+        from api.domains.events.mcp.events_mcp_tools import EVENTS_MCP_TOOLS
         assert len(EVENTS_MCP_TOOLS) > 0, "Should have event tools"
         print("✅ Can import events tools")
         
-        from domains.recordings.mcp.mcp_tools import MCP_TOOLS
+        from api.domains.recordings.mcp.mcp_tools import MCP_TOOLS
         assert len(MCP_TOOLS) > 0, "Should have recording tools"
         print("✅ Can import recording tools")
         

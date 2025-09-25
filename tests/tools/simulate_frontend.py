@@ -30,7 +30,7 @@ class FrontendSimulator:
         """Initialize the simulator and find active events."""
         
         # Import MCP handlers
-        from domains.leaderboard.mcp.leaderboard_mcp_handler import leaderboard_mcp_handler
+        from api.domains.leaderboard.mcp.leaderboard_mcp_handler import leaderboard_mcp_handler
         
         print("🎮 Frontend Simulator Initialization")
         print("=" * 50)
@@ -60,7 +60,7 @@ class FrontendSimulator:
     async def fetch_leaderboard(self) -> Dict[str, Any]:
         """Simulate frontend fetching leaderboard data."""
         
-        from domains.leaderboard.mcp.leaderboard_mcp_handler import leaderboard_mcp_handler
+        from api.domains.leaderboard.mcp.leaderboard_mcp_handler import leaderboard_mcp_handler
         
         try:
             result = await leaderboard_mcp_handler.get_event_leaderboard(
@@ -80,7 +80,7 @@ class FrontendSimulator:
     async def fetch_team_rank(self, team_name: str) -> Dict[str, Any]:
         """Simulate frontend looking up specific team rank."""
         
-        from domains.leaderboard.mcp.leaderboard_mcp_handler import leaderboard_mcp_handler
+        from api.domains.leaderboard.mcp.leaderboard_mcp_handler import leaderboard_mcp_handler
         
         try:
             result = await leaderboard_mcp_handler.get_team_rank_in_event(
@@ -99,7 +99,7 @@ class FrontendSimulator:
     async def fetch_competition_stats(self) -> Dict[str, Any]:
         """Simulate frontend fetching competition statistics."""
         
-        from domains.leaderboard.mcp.leaderboard_mcp_handler import leaderboard_mcp_handler
+        from api.domains.leaderboard.mcp.leaderboard_mcp_handler import leaderboard_mcp_handler
         
         try:
             result = await leaderboard_mcp_handler.get_competition_statistics(

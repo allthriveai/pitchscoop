@@ -102,7 +102,7 @@ class BatchScorer:
     async def score_session(self, session_info: Dict[str, Any]) -> Dict[str, Any]:
         """Score a single session."""
         
-        from domains.scoring.mcp.scoring_mcp_handler import scoring_mcp_handler
+        from api.domains.scoring.mcp.scoring_mcp_handler import scoring_mcp_handler
         
         team_name = session_info['team_name']
         session_id = session_info['session_id']

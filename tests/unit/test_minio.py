@@ -10,7 +10,7 @@ from pathlib import Path
 # Add the api directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent / "api"))
 
-from domains.recordings.infrastructure.minio_audio_storage import MinIOAudioStorage
+from api.domains.recordings.infrastructure.minio_audio_storage import MinIOAudioStorage
 import pytest
 
 

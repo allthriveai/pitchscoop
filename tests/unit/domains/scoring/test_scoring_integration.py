@@ -12,7 +12,7 @@ async def test_scoring():
     print("=" * 40)
     
     try:
-        from domains.scoring.mcp.scoring_mcp_handler import ScoringMCPHandler
+        from api.domains.scoring.mcp.scoring_mcp_handler import ScoringMCPHandler
         print("✅ Scoring handler imported successfully")
         
         handler = ScoringMCPHandler()

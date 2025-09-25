@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PitchScoop - Data Export</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f7;
+            line-height: 1.6;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #1d1d1f;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #007aff;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e5e5e7;
+            border-radius: 8px;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .controls input, .controls select, .controls button {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .controls input, .controls select {
+            min-width: 200px;
+        }
+        button {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button.success {
+            background: #28a745;
+        }
+        button.success:hover {
+            background: #218838;
+        }
+        button.secondary {
+            background: #6c757d;
+        }
+        button.secondary:hover {
+            background: #545b62;
+        }
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        .download-info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d1e7dd;
+            color: #0a3622;
+            border: 1px solid #badbcc;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .json-preview {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .format-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .format-buttons button {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+        .integration-example {
+            background: #f6f8fa;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+        .integration-example h4 {
+            margin-top: 0;
+            color: #24292f;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            cursor: pointer;
+            border-radius: 6px 6px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background: #007aff;
+            color: white;
+            border-color: #007aff;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍦 PitchScoop Data Export</h1>
+        
+        <div class="section">
+            <h2>🍨 Export Configuration</h2>
+            <div class="controls">
+                <input type="text" id="eventId" placeholder="Event ID" value="mcp-hackathon">
+                <select id="formatSelect">
+                    <option value="json">JSON Format</option>
+                    <option value="csv">CSV Format</option>
+                    <option value="typescript">TypeScript Interface</option>
+                </select>
+                <button id="loadData" class="success">📥 Load Data</button>
+                <button id="downloadData" class="secondary" disabled>💾 Download File</button>
+            </div>
+            <div class="download-info" id="downloadInfo" style="display: none;">
+                Ready to download: <strong id="filename"></strong>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🍧 Data Preview</h2>
+            <div id="dataPreview">
+                <div class="loading">Click "Load Data" to preview the leaderboard data</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🍒 Frontend Integration Guide</h2>
+            
+            <div class="tabs">
+                <div class="tab active" onclick="showTab('react')">React/Next.js</div>
+                <div class="tab" onclick="showTab('vue')">Vue.js</div>
+                <div class="tab" onclick="showTab('svelte')">Svelte</div>
+                <div class="tab" onclick="showTab('vanilla')">Vanilla JS</div>
+            </div>
+
+            <div id="react" class="tab-content active">
+                <div class="integration-example">
+                    <h4>React Component Example</h4>
+                    <div class="code-block">import { useState, useEffect } from 'react';
+
+// Option 1: Import the downloaded JSON file
+import leaderboardData from './data/mcp-hackathon-leaderboard.json';
+
+// Option 2: Fetch from API
+const LeaderboardComponent = () => {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    // Using imported JSON
+    setData(leaderboardData);
+    
+    // Or fetch from API
+    // fetch('/api/leaderboard/mcp-hackathon')
+    //   .then(res => res.json())
+    //   .then(setData);
+  }, []);
+
+  return (
+    &lt;div className="leaderboard"&gt;
+      &lt;h1&gt;🍦 Sweet Competition Results&lt;/h1&gt;
+      {data?.leaderboard?.map((team, index) =&gt; (
+        &lt;div key={team.session_id} className="team-row"&gt;
+          &lt;span className="rank"&gt;#{team.rank}&lt;/span&gt;
+          &lt;span className="team-name"&gt;{team.team_name}&lt;/span&gt;
+          &lt;span className="score"&gt;{team.total_score} pts&lt;/span&gt;
+          &lt;span className="project"&gt;{team.pitch_title}&lt;/span&gt;
+        &lt;/div&gt;
+      ))}
+    &lt;/div&gt;
+  );
+};</div>
+                </div>
+            </div>
+
+            <div id="vue" class="tab-content">
+                <div class="integration-example">
+                    <h4>Vue.js Component Example</h4>
+                    <div class="code-block">&lt;template&gt;
+  &lt;div class="leaderboard"&gt;
+    &lt;h1&gt;🍦 Sweet Competition Results&lt;/h1&gt;
+    &lt;div v-for="team in leaderboardData.leaderboard" :key="team.session_id" class="team-row"&gt;
+      &lt;span class="rank"&gt;#{{ team.rank }}&lt;/span&gt;
+      &lt;span class="team-name"&gt;{{ team.team_name }}&lt;/span&gt;
+      &lt;span class="score"&gt;{{ team.total_score }} pts&lt;/span&gt;
+      &lt;span class="project"&gt;{{ team.pitch_title }}&lt;/span&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script&gt;
+// Option 1: Import JSON file
+import leaderboardData from './data/mcp-hackathon-leaderboard.json';
+
+export default {
+  data() {
+    return {
+      leaderboardData: leaderboardData
+    };
+  },
+  
+  // Option 2: Fetch from API
+  async created() {
+    // const response = await fetch('/api/leaderboard/mcp-hackathon');
+    // this.leaderboardData = await response.json();
+  }
+};
+&lt;/script&gt;</div>
+                </div>
+            </div>
+
+            <div id="svelte" class="tab-content">
+                <div class="integration-example">
+                    <h4>Svelte Component Example</h4>
+                    <div class="code-block">&lt;script&gt;
+  import { onMount } from 'svelte';
+  
+  // Option 1: Import JSON file
+  import leaderboardData from './data/mcp-hackathon-leaderboard.json';
+  
+  let data = leaderboardData;
+  
+  // Option 2: Fetch from API
+  onMount(async () => {
+    // const response = await fetch('/api/leaderboard/mcp-hackathon');
+    // data = await response.json();
+  });
+&lt;/script&gt;
+
+&lt;div class="leaderboard"&gt;
+  &lt;h1&gt;🍦 Sweet Competition Results&lt;/h1&gt;
+  {#each data.leaderboard as team}
+    &lt;div class="team-row"&gt;
+      &lt;span class="rank"&gt;#{team.rank}&lt;/span&gt;
+      &lt;span class="team-name"&gt;{team.team_name}&lt;/span&gt;
+      &lt;span class="score"&gt;{team.total_score} pts&lt;/span&gt;
+      &lt;span class="project"&gt;{team.pitch_title}&lt;/span&gt;
+    &lt;/div&gt;
+  {/each}
+&lt;/div&gt;</div>
+                </div>
+            </div>
+
+            <div id="vanilla" class="tab-content">
+                <div class="integration-example">
+                    <h4>Vanilla JavaScript Example</h4>
+                    <div class="code-block">// Option 1: Include downloaded JSON file as a variable
+// &lt;script&gt; const leaderboardData = {...}; &lt;/script&gt;
+
+// Option 2: Fetch from API
+async function loadLeaderboard() {
+  try {
+    const response = await fetch('/api/leaderboard/mcp-hackathon');
+    const data = await response.json();
+    renderLeaderboard(data);
+  } catch (error) {
+    console.error('Error loading leaderboard:', error);
+  }
+}
+
+function renderLeaderboard(data) {
+  const container = document.getElementById('leaderboard-container');
+  
+  const html = data.leaderboard.map(team =&gt; `
+    &lt;div class="team-row"&gt;
+      &lt;span class="rank"&gt;#${team.rank}&lt;/span&gt;
+      &lt;span class="team-name"&gt;${team.team_name}&lt;/span&gt;
+      &lt;span class="score"&gt;${team.total_score} pts&lt;/span&gt;
+      &lt;span class="project"&gt;${team.pitch_title}&lt;/span&gt;
+    &lt;/div&gt;
+  `).join('');
+  
+  container.innerHTML = `
+    &lt;h1&gt;🍦 Sweet Competition Results&lt;/h1&gt;
+    ${html}
+  `;
+}
+
+// Load on page ready
+document.addEventListener('DOMContentLoaded', loadLeaderboard);</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🎨 Sample CSS Styles</h2>
+            <div class="code-block">.leaderboard {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.team-row {
+  display: grid;
+  grid-template-columns: 60px 200px 100px 1fr;
+  gap: 15px;
+  padding: 15px;
+  margin: 10px 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  align-items: center;
+}
+
+.rank {
+  font-weight: bold;
+  font-size: 1.2em;
+  color: #007aff;
+  text-align: center;
+}
+
+.team-name {
+  font-weight: 600;
+  color: #333;
+}
+
+.score {
+  font-weight: bold;
+  color: #28a745;
+  text-align: center;
+}
+
+.project {
+  color: #666;
+  font-size: 0.9em;
+}
+
+/* Medal colors for top 3 */
+.team-row:nth-child(2) .rank { color: #ffd700; } /* Gold */
+.team-row:nth-child(3) .rank { color: #c0c0c0; } /* Silver */  
+.team-row:nth-child(4) .rank { color: #cd7f32; } /* Bronze */</div>
+        </div>
+
+        <div class="section">
+            <h2>📁 File Structure Recommendations</h2>
+            <div class="code-block">your-frontend-project/
+├── src/
+│   ├── components/
+│   │   └── Leaderboard.jsx
+│   ├── data/
+│   │   ├── mcp-hackathon-leaderboard.json
+│   │   └── mcp-hackathon-stats.json
+│   └── types/
+│       └── leaderboard.ts  (TypeScript interfaces)
+├── public/
+│   └── api/  (if using static JSON files)
+└── README.md</div>
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+        let currentFormat = 'json';
+
+        async function loadData() {
+            const eventId = document.getElementById('eventId').value.trim();
+            if (!eventId) {
+                showError('Please enter an Event ID');
+                return;
+            }
+
+            const preview = document.getElementById('dataPreview');
+            preview.innerHTML = '<div class="loading">Loading data...</div>';
+
+            try {
+                // Load main leaderboard data
+                const leaderboardResponse = await fetch(`/api/leaderboard/${encodeURIComponent(eventId)}?limit=100`);
+                const leaderboardData = await leaderboardResponse.json();
+
+                if (leaderboardData.error) {
+                    throw new Error(leaderboardData.error);
+                }
+
+                // Load statistics
+                const statsResponse = await fetch(`/api/leaderboard/${encodeURIComponent(eventId)}/stats`);
+                const statsData = await statsResponse.json();
+
+                currentData = {
+                    leaderboard: leaderboardData,
+                    stats: statsData.success ? statsData : null,
+                    exported_at: new Date().toISOString(),
+                    event_id: eventId
+                };
+
+                updatePreview();
+                document.getElementById('downloadData').disabled = false;
+                
+                const downloadInfo = document.getElementById('downloadInfo');
+                const filename = document.getElementById('filename');
+                filename.textContent = getFileName();
+                downloadInfo.style.display = 'block';
+
+            } catch (error) {
+                showError(`Error loading data: ${error.message}`);
+            }
+        }
+
+        function updatePreview() {
+            const preview = document.getElementById('dataPreview');
+            const format = document.getElementById('formatSelect').value;
+            currentFormat = format;
+
+            let content = '';
+            switch (format) {
+                case 'json':
+                    content = `<div class="json-preview">${JSON.stringify(currentData, null, 2)}</div>`;
+                    break;
+                case 'csv':
+                    content = `<div class="json-preview">${generateCSV(currentData)}</div>`;
+                    break;
+                case 'typescript':
+                    content = `<div class="json-preview">${generateTypeScript(currentData)}</div>`;
+                    break;
+            }
+
+            preview.innerHTML = content;
+            document.getElementById('filename').textContent = getFileName();
+        }
+
+        function generateCSV(data) {
+            const teams = data.leaderboard.leaderboard || [];
+            const headers = 'Rank,Team Name,Total Score,Idea Score,Technical Score,Tool Use Score,Presentation Score,Pitch Title,Scoring Date';
+            
+            const rows = teams.map(team => [
+                team.rank,
+                `"${team.team_name}"`,
+                team.total_score,
+                team.category_scores.idea_score,
+                team.category_scores.technical_score,
+                team.category_scores.tool_use_score,
+                team.category_scores.presentation_score,
+                `"${team.pitch_title || ''}"`,
+                team.scoring_timestamp ? new Date(team.scoring_timestamp).toLocaleDateString() : ''
+            ].join(','));
+
+            return headers + '\\n' + rows.join('\\n');
+        }
+
+        function generateTypeScript(data) {
+            return `// TypeScript interfaces for leaderboard data
+export interface TeamScore {
+  idea_score: number;
+  technical_score: number;
+  tool_use_score: number;
+  presentation_score: number;
+}
+
+export interface LeaderboardTeam {
+  session_id: string;
+  team_name: string;
+  total_score: number;
+  scoring_timestamp: string;
+  category_scores: TeamScore;
+  pitch_title?: string;
+  scoring_method: string;
+  rank: number;
+}
+
+export interface LeaderboardStats {
+  total_teams: number;
+  highest_score: number;
+  lowest_score: number;
+  average_score: number;
+  score_distribution: {
+    [key: string]: number;
+  };
+}
+
+export interface LeaderboardData {
+  event_id: string;
+  leaderboard: LeaderboardTeam[];
+  total_teams: number;
+  returned_count: number;
+  generated_at: string;
+  success: boolean;
+}
+
+export interface ExportedData {
+  leaderboard: LeaderboardData;
+  stats: {
+    event_id: string;
+    stats: LeaderboardStats;
+    generated_at: string;
+    success: boolean;
+  } | null;
+  exported_at: string;
+  event_id: string;
+}
+
+// Example usage:
+// const data: ExportedData = /* your imported data */;
+// const topTeam: LeaderboardTeam = data.leaderboard.leaderboard[0];`;
+        }
+
+        function getFileName() {
+            const eventId = document.getElementById('eventId').value.trim();
+            const format = document.getElementById('formatSelect').value;
+            const timestamp = new Date().toISOString().split('T')[0];
+            
+            const extensions = { json: 'json', csv: 'csv', typescript: 'ts' };
+            return `${eventId}-leaderboard-${timestamp}.${extensions[format]}`;
+        }
+
+        function downloadData() {
+            if (!currentData) return;
+
+            let content = '';
+            let mimeType = '';
+
+            switch (currentFormat) {
+                case 'json':
+                    content = JSON.stringify(currentData, null, 2);
+                    mimeType = 'application/json';
+                    break;
+                case 'csv':
+                    content = generateCSV(currentData);
+                    mimeType = 'text/csv';
+                    break;
+                case 'typescript':
+                    content = generateTypeScript(currentData);
+                    mimeType = 'text/typescript';
+                    break;
+            }
+
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = getFileName();
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showSuccess(`Downloaded ${getFileName()} successfully!`);
+        }
+
+        function showError(message) {
+            const preview = document.getElementById('dataPreview');
+            preview.innerHTML = `<div class="error">${message}</div>`;
+        }
+
+        function showSuccess(message) {
+            const preview = document.getElementById('dataPreview');
+            const currentContent = preview.innerHTML;
+            preview.innerHTML = `<div class="success">${message}</div>` + currentContent;
+            setTimeout(() => {
+                const successDiv = preview.querySelector('.success');
+                if (successDiv) successDiv.remove();
+            }, 3000);
+        }
+
+        function showTab(tabName) {
+            // Hide all tab contents
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => content.classList.remove('active'));
+            
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        // Event listeners
+        document.getElementById('loadData').addEventListener('click', loadData);
+        document.getElementById('downloadData').addEventListener('click', downloadData);
+        document.getElementById('formatSelect').addEventListener('change', () => {
+            if (currentData) updatePreview();
+        });
+
+        // Load data on page load if default event ID exists
+        window.addEventListener('load', () => {
+            const eventId = document.getElementById('eventId').value.trim();
+            if (eventId) {
+                loadData();
+            }
+        });
+    </script>
+</body>
+</html>

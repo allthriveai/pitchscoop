@@ -18,14 +18,14 @@ import base64
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timedelta
 
-from domains.recordings.mcp.mcp_tools import (
+from api.domains.recordings.mcp.mcp_tools import (
     execute_mcp_tool, 
     get_tool_schema,
     list_available_tools,
     get_tools_summary,
     MCP_TOOLS
 )
-from domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
+from api.domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
 
 
 class TestMCPToolsRegistry:

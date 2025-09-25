@@ -25,9 +25,9 @@ import base64
 # Add the api directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / "api"))
 
-from domains.events.mcp.events_mcp_tools import execute_events_mcp_tool
-from domains.recordings.mcp.mcp_tools import execute_mcp_tool
-from domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
+from api.domains.events.mcp.events_mcp_tools import execute_events_mcp_tool
+from api.domains.recordings.mcp.mcp_tools import execute_mcp_tool
+from api.domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
 
 
 def generate_test_audio(duration_seconds=2.0, sample_rate=16000, frequency=440):

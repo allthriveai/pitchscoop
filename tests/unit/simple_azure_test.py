@@ -37,7 +37,7 @@ async def test_azure_connection():
     
     print("\n🔗 Testing Azure OpenAI client import...")
     try:
-        from domains.shared.infrastructure.azure_openai_client import get_azure_openai_client
+        from api.domains.shared.infrastructure.azure_openai_client import get_azure_openai_client
         print("✅ Azure OpenAI client imported successfully")
         
         client = await get_azure_openai_client()

@@ -15,7 +15,7 @@ from pathlib import Path
 api_path = Path(__file__).parent / "api"
 sys.path.insert(0, str(api_path))
 
-from domains.indexing.services.redis_vector_service import redis_vector_service
+from api.domains.indexing.services.redis_vector_service import redis_vector_service
 from llama_index.core import Document
 
 # Configure logging

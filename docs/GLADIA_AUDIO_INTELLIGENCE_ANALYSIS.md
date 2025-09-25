@@ -145,18 +145,14 @@ pitch_specific_analysis = {
 }
 ```
 
-### Option 3: AssemblyAI Audio Intelligence
+### Option 3: Alternative STT Providers
 
-**Features:**
-- Advanced sentiment analysis with confidence scores
-- Emotion detection with broader category range
-- Content safety and moderation
-- Better API reliability and documentation
+**Note:** PitchScoop now uses Gladia as the primary STT provider for consistency and integration benefits.
 
-**Benefits:**
-- More comprehensive audio intelligence out-of-the-box
-- Better API reliability compared to Gladia batch processing
-- Specialized features for business/presentation analysis
+**Previous evaluation of alternatives:**
+- Other providers offered different feature sets
+- Reliability comparisons were conducted
+- Integration complexity was a key factor in decision
 
 ### Option 4: Custom OpenAI-Powered Solution
 

@@ -38,7 +38,7 @@ cd pitchscoop
 That's it! The script will:
 - ✅ Validate Docker is installed and running
 - ✅ Copy environment template to `.env`
-- ✅ Build and start all services (FastAPI, Redis, MinIO, Qdrant)
+- ✅ Build and start all services (FastAPI, Redis, MinIO)
 - ✅ Run health checks to verify everything is working
 - ✅ Show you all the important URLs and commands
 

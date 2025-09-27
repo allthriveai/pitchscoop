@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class AudioProcessor:
-    """Utility class for processing audio data for Gladia STT."""
+    """Utility class for processing audio data."""
     
     @staticmethod
     def interleave_audio(channels_data: List[bytes], bit_depth: int = 16) -> bytes:
@@ -52,38 +52,6 @@ class AudioProcessor:
         
         return bytes(audio)
     
-    @staticmethod
-    def create_audio_chunk_message(audio_data: bytes, as_base64: bool = True) -> str:
-        """
-        Create a JSON message containing audio chunk data.
-        
-        Args:
-            audio_data: Raw audio bytes
-            as_base64: Whether to encode as base64 (True) or send as binary (False)
-            
-        Returns:
-            JSON string message for sending to Gladia
-        """
-        if as_base64:
-            encoded_data = base64.b64encode(audio_data).decode('utf-8')
-            message = {
-                "type": "audio_chunk",
-                "data": {
-                    "chunk": encoded_data
-                }
-            }
-            return json.dumps(message)
-        else:
-            # For binary transmission, return the raw bytes
-            return audio_data
-    
-    @staticmethod
-    def create_stop_recording_message() -> str:
-        """Create a stop recording message for Gladia."""
-        message = {
-            "type": "stop_recording"
-        }
-        return json.dumps(message)
     
     @staticmethod
     def validate_audio_config(config: Dict[str, Any]) -> Dict[str, str]:
@@ -153,62 +121,3 @@ class AudioProcessor:
         for i in range(0, len(audio_data), chunk_size):
             chunks.append(audio_data[i:i + chunk_size])
         return chunks
-
-
-def parse_gladia_message(message_data: str) -> Optional[Dict[str, Any]]:
-    """
-    Parse a message received from Gladia WebSocket.
-    
-    Args:
-        message_data: Raw message data from WebSocket
-        
-    Returns:
-        Parsed message dictionary or None if parsing fails
-    """
-    try:
-        message = json.loads(message_data)
-        return message
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse Gladia message: {e}")
-        return None
-
-
-def extract_transcript_text(message: Dict[str, Any]) -> Optional[str]:
-    """
-    Extract transcript text from a Gladia message.
-    
-    Args:
-        message: Parsed Gladia message
-        
-    Returns:
-        Transcript text if available, None otherwise
-    """
-    try:
-        if (message.get('type') == 'transcript' and 
-            message.get('data', {}).get('is_final') and
-            'utterance' in message.get('data', {})):
-            return message['data']['utterance']['text']
-    except (KeyError, TypeError) as e:
-        logger.error(f"Failed to extract transcript text: {e}")
-    
-    return None
-
-
-def get_speaker_channel(message: Dict[str, Any]) -> Optional[int]:
-    """
-    Get speaker channel from a Gladia message.
-    
-    Args:
-        message: Parsed Gladia message
-        
-    Returns:
-        Channel number if available, None otherwise
-    """
-    try:
-        if (message.get('type') == 'transcript' and
-            'utterance' in message.get('data', {})):
-            return message['data']['utterance'].get('channel')
-    except (KeyError, TypeError) as e:
-        logger.error(f"Failed to extract speaker channel: {e}")
-    
-    return None

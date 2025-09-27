@@ -251,6 +251,49 @@ class ScoringMCPHandler:
                     json.dumps(scoring_record)
                 )
                 
+                # Update Redis Sorted Set leaderboard with team's score
+                total_score = analysis.get("overall", {}).get("total_score", 0)
+                if total_score > 0:
+                    leaderboard_key = f"event:{event_id}:leaderboard"
+                    await redis_client.zadd(leaderboard_key, {session_id: total_score})
+                    await redis_client.expire(leaderboard_key, 86400 * 30)  # 30 days
+                    
+                    # Get team's new rank for logging
+                    rank = await redis_client.zrevrank(leaderboard_key, session_id)
+                    new_rank = rank + 1 if rank is not None else None
+                    
+                    logger.info(
+                        "Team score updated in leaderboard",
+                        operation="leaderboard_update",
+                        team_name=team_name,
+                        total_score=total_score,
+                        new_rank=new_rank
+                    )
+                    
+                    # Publish leaderboard update to Redis Streams for real-time WebSocket updates
+                    try:
+                        from ...websockets.websocket_service import redis_streams
+                        await redis_streams.publish_leaderboard_update(event_id, {
+                            "team_name": team_name,
+                            "score": total_score,
+                            "rank": new_rank,
+                            "previous_rank": 0  # Could track this if needed
+                        })
+                        
+                        # Also publish scoring activity
+                        await redis_streams.publish_activity(event_id, {
+                            "type": "scoring_completed",
+                            "team_name": team_name,
+                            "session_id": session_id,
+                            "message": f"{team_name} scored {total_score:.1f} points"
+                        })
+                    except Exception as stream_error:
+                        logger.warning(
+                            "Failed to publish to Redis Streams",
+                            operation="stream_publish",
+                            error=str(stream_error)
+                        )
+                
                 # Also store in judge-specific namespace if provided
                 if judge_id:
                     judge_key = f"event:{event_id}:judge:{judge_id}:scoring:{session_id}"

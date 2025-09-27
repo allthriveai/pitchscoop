@@ -1,30 +1,14 @@
 #!/usr/bin/env python3
 """
-PitchScoop MCP Server
+Simple MCP Server Test - Just Scoring Domain
 
-This server exposes all PitchScoop domain tools via the Model Context Protocol (MCP),
-allowing AI assistants like Claude Desktop to interact with the pitch competition platform.
-
-Available domains:
-- Events: Create and manage competitions (hackathons, VC pitches, practice sessions)
-- Pitches: Video pitch analysis with Hume AI emotion detection and coaching feedback
-- Scoring: AI-powered pitch analysis and scoring
-- Chat: RAG-powered conversational AI over competition data
-- Leaderboards: Competition rankings and standings
-- Feedback: Individual team feedback and improvement suggestions
-
-Usage:
-    python mcp_server.py
-
-The server runs on stdio transport for Claude Desktop integration.
+Test the MCP server with only the working scoring domain to verify basic functionality.
 """
 import asyncio
 import sys
 import json
 import logging
-from typing import Any, Dict, List, Optional
-from datetime import datetime
-import traceback
+from typing import Any, Dict
 
 # MCP server imports
 from mcp.server.models import InitializationOptions
@@ -38,63 +22,30 @@ from mcp.types import (
     ListToolsResult,
 )
 import mcp.server.stdio
-import mcp.types as types
 
-# Import all domain MCP tool executors
-from domains.events.mcp.events_mcp_tools import execute_events_mcp_tool, EVENTS_MCP_TOOLS
-from domains.pitches.mcp.pitch_tools import handle_pitch_mcp_call, pitch_tools
+# Import only the scoring domain (should work)
 from domains.scoring.mcp.scoring_mcp_tools import execute_scoring_mcp_tool, SCORING_MCP_TOOLS
-from domains.chat.mcp.chat_mcp_tools import execute_chat_mcp_tool, CHAT_MCP_TOOLS
-from domains.market.mcp.market_mcp_tools import execute_market_mcp_tool, MARKET_MCP_TOOLS
-
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("pitchscoop.mcp.server")
+logger = logging.getLogger("pitchscoop.mcp.test")
 
 
-class PitchScoopMCPServer:
-    """
-    MCP server for PitchScoop pitch competition platform.
-    
-    Provides AI assistants with access to:
-    - Event management tools
-    - Video pitch analysis with Hume AI emotion detection
-    - AI-powered scoring and analysis  
-    - RAG-powered chat over competition data
-    - Leaderboards and rankings (when implemented)
-    - Individual feedback generation (when implemented)
-    """
+class SimpleMCPServer:
+    """Simple MCP server with just scoring domain for testing."""
     
     def __init__(self):
-        """Initialize the PitchScoop MCP server."""
-        self.server = Server("pitchscoop")
+        """Initialize the test MCP server."""
+        self.server = Server("pitchscoop-simple")
         self._setup_handlers()
         
-        # Tool registry - maps tool names to their domains and executors
+        # Tool registry - only scoring domain
         self.tool_registry = {
-            # Events domain tools
-            **{name: {"domain": "events", "executor": execute_events_mcp_tool, "config": config} 
-               for name, config in EVENTS_MCP_TOOLS.items()},
-            
-            # Pitches domain tools (new clean implementation)
-            **{tool["name"]: {"domain": "pitches", "executor": handle_pitch_mcp_call, "config": tool}
-               for tool in pitch_tools.get_tool_definitions()},
-            
-            # Scoring domain tools
-            **{name: {"domain": "scoring", "executor": execute_scoring_mcp_tool, "config": config}
+            **{name: {"domain": "scoring", "executor": execute_scoring_mcp_tool, "config": config} 
                for name, config in SCORING_MCP_TOOLS.items()},
-            
-            # Chat domain tools
-            **{name: {"domain": "chat", "executor": execute_chat_mcp_tool, "config": config}
-               for name, config in CHAT_MCP_TOOLS.items()},
-            
-            # Market domain tools
-            **{name: {"domain": "market", "executor": execute_market_mcp_tool, "config": config}
-               for name, config in MARKET_MCP_TOOLS.items()},
         }
         
-        logger.info(f"PitchScoop MCP server initialized with {len(self.tool_registry)} tools")
+        logger.info(f"Simple MCP server initialized with {len(self.tool_registry)} tools")
         logger.info(f"Available tools: {list(self.tool_registry.keys())}")
     
     def _setup_handlers(self):
@@ -149,6 +100,7 @@ class PitchScoopMCPServer:
                 logger.info(f"Executing {domain} domain tool: {tool_name}")
                 
                 # Execute the tool
+                from datetime import datetime
                 start_time = datetime.utcnow()
                 result = await executor(tool_name, arguments)
                 duration = (datetime.utcnow() - start_time).total_seconds()
@@ -160,7 +112,7 @@ class PitchScoopMCPServer:
                         "tool": tool_name,
                         "duration_seconds": duration,
                         "executed_at": start_time.isoformat(),
-                        "server": "pitchscoop-mcp"
+                        "server": "pitchscoop-simple-test"
                     }
                 
                 # Format result for MCP response
@@ -174,6 +126,7 @@ class PitchScoopMCPServer:
                 )
                 
             except Exception as e:
+                import traceback
                 error_msg = f"Error executing tool {tool_name}: {str(e)}"
                 logger.error(error_msg)
                 logger.error(f"Traceback: {traceback.format_exc()}")
@@ -192,22 +145,8 @@ class PitchScoopMCPServer:
     
     async def run(self):
         """Run the MCP server on stdio transport."""
-        logger.info("Starting PitchScoop MCP server...")
+        logger.info("Starting Simple MCP server...")
         logger.info("Server ready for AI assistant connections")
-        
-        # Additional startup info
-        domains = {}
-        for tool_name, tool_info in self.tool_registry.items():
-            domain = tool_info["domain"]
-            if domain not in domains:
-                domains[domain] = []
-            domains[domain].append(tool_name)
-        
-        logger.info("Available domains and tools:")
-        for domain, tools in domains.items():
-            logger.info(f"  {domain}: {len(tools)} tools")
-            for tool in tools:
-                logger.debug(f"    - {tool}")
         
         # Run server on stdio
         async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
@@ -215,8 +154,8 @@ class PitchScoopMCPServer:
                 read_stream,
                 write_stream,
                 InitializationOptions(
-                    server_name="pitchscoop",
-                    server_version="1.0.0",
+                    server_name="pitchscoop-simple",
+                    server_version="1.0.0-test",
                     capabilities=self.server.get_capabilities(
                         notification_options=NotificationOptions(),
                         experimental_capabilities={}
@@ -226,16 +165,17 @@ class PitchScoopMCPServer:
 
 
 async def main():
-    """Main entry point for the MCP server."""
+    """Main entry point for the simple MCP server."""
     try:
         # Create and run the server
-        server = PitchScoopMCPServer()
+        server = SimpleMCPServer()
         await server.run()
         
     except KeyboardInterrupt:
         logger.info("Server shutdown requested")
     except Exception as e:
         logger.error(f"Server error: {e}")
+        import traceback
         logger.error(traceback.format_exc())
         sys.exit(1)
 

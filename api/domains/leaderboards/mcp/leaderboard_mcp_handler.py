@@ -34,6 +34,73 @@ class LeaderboardMCPHandler:
                 self.redis_client = redis.from_url(redis_url, decode_responses=True)
         return self.redis_client
     
+    async def update_team_score_in_leaderboard(
+        self,
+        event_id: str,
+        session_id: str,
+        team_name: str,
+        total_score: float
+    ) -> Dict[str, Any]:
+        """
+        Update a team's score in the Redis Sorted Set leaderboard.
+        This should be called whenever a team gets scored.
+        
+        Args:
+            event_id: Event identifier
+            session_id: Team's session identifier
+            team_name: Team name
+            total_score: Team's total score
+            
+        Returns:
+            Update confirmation with new rank
+        """
+        logger = get_logger("leaderboards.update_score")
+        
+        try:
+            redis_client = await self.get_redis()
+            leaderboard_key = f"event:{event_id}:leaderboard"
+            
+            # Update score in Redis Sorted Set - O(log n)
+            await redis_client.zadd(leaderboard_key, {session_id: total_score})
+            
+            # Set expiration for cleanup
+            await redis_client.expire(leaderboard_key, 86400 * 30)  # 30 days
+            
+            # Get new rank
+            rank = await redis_client.zrevrank(leaderboard_key, session_id)
+            total_teams = await redis_client.zcard(leaderboard_key)
+            
+            log_with_context(
+                logger, "INFO", "Team score updated in leaderboard",
+                event_id=event_id,
+                session_id=session_id,
+                team_name=team_name,
+                score=total_score,
+                new_rank=rank + 1 if rank is not None else None
+            )
+            
+            return {
+                "event_id": event_id,
+                "session_id": session_id,
+                "team_name": team_name,
+                "total_score": total_score,
+                "rank": rank + 1 if rank is not None else None,
+                "total_teams": total_teams,
+                "success": True
+            }
+            
+        except Exception as e:
+            log_with_context(
+                logger, "ERROR", f"Failed to update team score: {str(e)}",
+                event_id=event_id,
+                session_id=session_id,
+                error_type=type(e).__name__
+            )
+            return {
+                "error": f"Failed to update team score: {str(e)}",
+                "success": False
+            }
+    
     async def generate_leaderboard(
         self,
         event_id: str,
@@ -41,7 +108,7 @@ class LeaderboardMCPHandler:
         include_team_details: bool = True
     ) -> Dict[str, Any]:
         """
-        Generate leaderboard for an event based on AI scoring results.
+        Generate leaderboard using Redis Sorted Sets for instant rankings.
         
         Args:
             event_id: Event identifier for multi-tenant isolation
@@ -49,13 +116,13 @@ class LeaderboardMCPHandler:
             include_team_details: Whether to include pitch titles and details
             
         Returns:
-            Ranked leaderboard with team scores
+            Ranked leaderboard with team scores from Redis Sorted Set
         """
         logger = get_logger("leaderboards.generate")
         operation = "generate_leaderboard"
         
         log_with_context(
-            logger, "INFO", "Starting leaderboard generation",
+            logger, "INFO", "Starting Redis Sorted Set leaderboard generation",
             event_id=event_id,
             operation=operation,
             limit=limit,
@@ -64,16 +131,16 @@ class LeaderboardMCPHandler:
         
         try:
             redis_client = await self.get_redis()
+            leaderboard_key = f"event:{event_id}:leaderboard"
             
-            # Query all scoring results for the event
-            scoring_pattern = f"event:{event_id}:scoring:*"
+            # Get top teams from Redis Sorted Set - O(log n + m)
+            top_teams_raw = await redis_client.zrevrange(
+                leaderboard_key, 0, limit - 1, withscores=True
+            )
             
-            # Use keys() pattern for simpler approach (fine for 30-50 teams)
-            scoring_keys = await redis_client.keys(scoring_pattern)
-            
-            if not scoring_keys:
+            if not top_teams_raw:
                 log_with_context(
-                    logger, "WARNING", "No scoring data found for event",
+                    logger, "WARNING", "No teams found in leaderboard",
                     event_id=event_id,
                     operation=operation
                 )
@@ -85,108 +152,71 @@ class LeaderboardMCPHandler:
                     "message": "No scored pitches found for this event"
                 }
             
-            log_with_context(
-                logger, "DEBUG", "Found scoring records",
-                event_id=event_id,
-                operation=operation,
-                scoring_records_count=len(scoring_keys)
-            )
+            # Get total team count
+            total_teams = await redis_client.zcard(leaderboard_key)
             
-            # Collect and process scoring data
+            # Build leaderboard entries
             leaderboard_entries = []
             
-            for scoring_key in scoring_keys:
-                try:
-                    scoring_json = await redis_client.get(scoring_key)
-                    if not scoring_json:
-                        continue
-                        
-                    scoring_data = json.loads(scoring_json)
-                    analysis = scoring_data.get("analysis", {})
-                    
-                    # Extract the overall total score (primary ranking field)
-                    overall = analysis.get("overall", {})
-                    total_score = overall.get("total_score") or analysis.get("total_score", 0)
-                    
-                    if total_score == 0:
-                        log_with_context(
-                            logger, "WARNING", "Found scoring record with zero total score",
-                            event_id=event_id,
-                            session_id=scoring_data.get("session_id"),
-                            team_name=scoring_data.get("team_name")
-                        )
-                        continue
-                    
-                    # Build leaderboard entry
-                    entry = {
-                        "session_id": scoring_data.get("session_id"),
-                        "team_name": scoring_data.get("team_name"),
-                        "total_score": float(total_score),
-                        "scoring_timestamp": scoring_data.get("scoring_timestamp")
-                    }
-                    
-                    # Add category scores
-                    entry["category_scores"] = {
-                        "idea_score": float(analysis.get("idea", {}).get("score", 0)),
-                        "technical_score": float(analysis.get("technical_implementation", {}).get("score", 0)),
-                        "tool_use_score": float(analysis.get("tool_use", {}).get("score", 0)),
-                        "presentation_score": float(analysis.get("presentation", {}).get("score", 0))
-                    }
-                    
-                    # Add team details if requested
-                    if include_team_details:
-                        entry["pitch_title"] = scoring_data.get("pitch_title")
-                        entry["scoring_method"] = scoring_data.get("scoring_method", "ai_analysis")
-                    
-                    leaderboard_entries.append(entry)
-                    
-                except (json.JSONDecodeError, KeyError) as e:
-                    log_with_context(
-                        logger, "ERROR", f"Failed to process scoring record: {str(e)}",
-                        event_id=event_id,
-                        scoring_key=scoring_key,
-                        error_type=type(e).__name__
-                    )
-                    continue
-            
-            if not leaderboard_entries:
-                log_with_context(
-                    logger, "WARNING", "No valid scoring entries found",
-                    event_id=event_id,
-                    operation=operation,
-                    processed_keys=len(scoring_keys)
-                )
-                return {
-                    "event_id": event_id,
-                    "leaderboard": [],
-                    "total_teams": 0,
-                    "generated_at": datetime.utcnow().isoformat(),
-                    "message": "No valid scored pitches found"
+            for rank, (session_id, score) in enumerate(top_teams_raw, 1):
+                entry = {
+                    "rank": rank,
+                    "session_id": session_id,
+                    "total_score": float(score),
                 }
-            
-            # Sort by total_score descending (highest scores first)
-            leaderboard_entries.sort(key=lambda x: x["total_score"], reverse=True)
-            
-            # Add rankings and limit results
-            for i, entry in enumerate(leaderboard_entries[:limit], 1):
-                entry["rank"] = i
-            
-            final_leaderboard = leaderboard_entries[:limit]
+                
+                # Get additional team details if requested
+                if include_team_details:
+                    try:
+                        # Fetch team details from original scoring record
+                        scoring_key = f"event:{event_id}:scoring:{session_id}"
+                        scoring_json = await redis_client.get(scoring_key)
+                        
+                        if scoring_json:
+                            scoring_data = json.loads(scoring_json)
+                            analysis = scoring_data.get("analysis", {})
+                            
+                            entry.update({
+                                "team_name": scoring_data.get("team_name", f"Team-{session_id}"),
+                                "pitch_title": scoring_data.get("pitch_title", ""),
+                                "scoring_timestamp": scoring_data.get("scoring_timestamp"),
+                                "scoring_method": scoring_data.get("scoring_method", "ai_analysis"),
+                                "category_scores": {
+                                    "idea_score": float(analysis.get("idea", {}).get("score", 0)),
+                                    "technical_score": float(analysis.get("technical_implementation", {}).get("score", 0)),
+                                    "tool_use_score": float(analysis.get("tool_use", {}).get("score", 0)),
+                                    "presentation_score": float(analysis.get("presentation", {}).get("score", 0))
+                                }
+                            })
+                        else:
+                            entry["team_name"] = f"Team-{session_id}"
+                            
+                    except (json.JSONDecodeError, KeyError) as e:
+                        log_with_context(
+                            logger, "WARNING", f"Failed to get team details: {str(e)}",
+                            event_id=event_id,
+                            session_id=session_id
+                        )
+                        entry["team_name"] = f"Team-{session_id}"
+                else:
+                    entry["team_name"] = f"Team-{session_id}"
+                
+                leaderboard_entries.append(entry)
             
             log_with_context(
-                logger, "INFO", "Leaderboard generation completed successfully",
+                logger, "INFO", "Redis Sorted Set leaderboard generated successfully",
                 event_id=event_id,
                 operation=operation,
-                total_teams=len(leaderboard_entries),
-                returned_teams=len(final_leaderboard),
-                top_score=final_leaderboard[0]["total_score"] if final_leaderboard else 0
+                total_teams=total_teams,
+                returned_teams=len(leaderboard_entries),
+                top_score=leaderboard_entries[0]["total_score"] if leaderboard_entries else 0
             )
             
             return {
                 "event_id": event_id,
-                "leaderboard": final_leaderboard,
-                "total_teams": len(leaderboard_entries),
-                "returned_count": len(final_leaderboard),
+                "leaderboard": leaderboard_entries,
+                "total_teams": total_teams,
+                "returned_count": len(leaderboard_entries),
                 "generated_at": datetime.utcnow().isoformat(),
                 "success": True
             }

@@ -1,0 +1,1 @@
+"""Pitch value objects module"""

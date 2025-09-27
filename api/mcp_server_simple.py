@@ -9,6 +9,7 @@ Available domains:
 - Events: Create and manage competitions
 - Recordings: Record and manage pitch audio with Gladia STT
 - Scoring: AI-powered pitch analysis and scoring
+- Leaderboards: Competition rankings and team standings
 
 Usage:
     python mcp_server_simple.py
@@ -39,6 +40,7 @@ import mcp.types as types
 from domains.events.mcp.events_mcp_tools import execute_events_mcp_tool, EVENTS_MCP_TOOLS
 from domains.recordings.mcp.mcp_tools import execute_mcp_tool as execute_recordings_tool, MCP_TOOLS as RECORDINGS_MCP_TOOLS
 from domains.scoring.mcp.scoring_mcp_tools import execute_scoring_mcp_tool, SCORING_MCP_TOOLS
+from domains.leaderboards.mcp.leaderboard_mcp_tools import execute_leaderboard_mcp_tool, LEADERBOARD_MCP_TOOLS
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -66,6 +68,10 @@ class PitchScoopMCPServerSimple:
             # Scoring domain tools
             **{name: {"domain": "scoring", "executor": execute_scoring_mcp_tool, "config": config}
                for name, config in SCORING_MCP_TOOLS.items()},
+            
+            # Leaderboards domain tools
+            **{name: {"domain": "leaderboards", "executor": execute_leaderboard_mcp_tool, "config": config}
+               for name, config in LEADERBOARD_MCP_TOOLS.items()},
         }
         
         logger.info(f"Simplified PitchScoop MCP server initialized with {len(self.tool_registry)} tools")

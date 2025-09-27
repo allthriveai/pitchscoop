@@ -1,1 +1,0 @@
-# Gladia Speech-to-Text domain

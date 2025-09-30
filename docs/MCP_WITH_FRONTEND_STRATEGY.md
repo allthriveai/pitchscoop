@@ -1,12 +1,13 @@
-# MCP Strategy When Building a Frontend
+# MCP Strategy With Separate Frontend Repository
 
-## The New Reality
+## The Current Reality
 
-If we're building a frontend, then we have:
-- **Traditional web app** (React/Vue + FastAPI backend)
-- **Plus MCP tools** that provide the same functionality
+PitchScoop implements a dual-interface architecture:
+- **Backend Repository** (this repo): MCP-first FastAPI platform with Redis Stack
+- **Frontend Repository** (separate): Traditional React/Next.js web application
+- **Shared Business Logic**: Both interfaces consume the same backend APIs and MCP tools
 
-This changes the value proposition entirely.
+This separation provides clean boundaries and specialized development workflows.
 
 ---
 

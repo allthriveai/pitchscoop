@@ -916,7 +916,6 @@ class ChatMCPHandler:
         detailed_check: bool = False,
         test_query: bool = False
     ) -> Dict[str, Any]:
-        """
         """Check health and readiness of the RAG chat system.
         
         Args:
@@ -1158,6 +1157,7 @@ class ChatMCPHandler:
                 "error": f"RAG response generation failed: {str(e)}",
                 "context_types": []
             }
+    
     
     async def _store_message(self, message: ChatMessage) -> bool:
         """Store a message in Redis."""

@@ -21,6 +21,8 @@ A modern, cloud-native platform built around **Model Context Protocol (MCP)** fo
 - **☁️ Cloud-Native**: Containerized with Redis, MinIO, and vector storage
 - **🚀 Production-Ready**: Health checks, monitoring, and comprehensive testing
 
+> **📱 Frontend**: The web UI is maintained in a [separate repository](https://github.com/yourusername/pitchscoop-frontend). This backend repo focuses on the MCP-first API platform that serves both AI assistants and traditional web interfaces.
+
 ## 🔗 MCP Architecture Overview
 
 PitchScoop is built **MCP-first**, meaning every business function is exposed as a standardized Model Context Protocol tool. This enables AI assistants (Claude, GPT, etc.) to seamlessly interact with the platform through a unified interface.

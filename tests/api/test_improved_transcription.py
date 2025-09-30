@@ -6,7 +6,10 @@ import struct
 import math
 import sys
 
-sys.path.insert(0, '/Users/allierays/Sites/pitchscoop/api')
+# Setup dynamic imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+from tests.utils.path_utils import setup_imports
+setup_imports()
 
 from api.domains.recordings.mcp.gladia_mcp_handler import GladiaMCPHandler
 

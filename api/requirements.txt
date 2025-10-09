@@ -29,3 +29,9 @@ llama-index-vector-stores-redis
 redis[hiredis]==5.2.0
 redisvl
 numpy>=1.24.0
+
+# PostgreSQL and SQLAlchemy for relational database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.13.1
+asyncpg==0.29.0  # For async PostgreSQL support

@@ -9,6 +9,7 @@ services:
       - ./api:/app
     environment:
       - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://pitchscoop:pitchscoop123@postgres:5432/pitchscoop
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=pitchscoop
       - MINIO_SECRET_KEY=pitchscoop123
@@ -25,9 +26,28 @@ services:
       - GLADIA_API_URL=${GLADIA_API_URL}
     depends_on:
       - redis
+      - postgres
       - minio
     networks:
       - hackathon-net
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=pitchscoop
+      - POSTGRES_USER=pitchscoop
+      - POSTGRES_PASSWORD=pitchscoop123
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - hackathon-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pitchscoop"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis/redis-stack:7.2.0-v9
@@ -56,6 +76,7 @@ services:
       - hackathon-net
 
 volumes:
+  postgres-data:
   redis-data:
   minio-data:
 

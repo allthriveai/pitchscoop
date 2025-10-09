@@ -6,6 +6,7 @@ This server exposes all PitchScoop domain tools via the Model Context Protocol (
 allowing AI assistants like Claude Desktop to interact with the pitch competition platform.
 
 Available domains:
+- System: Setup, diagnostics, and onboarding tools for AI assistants
 - Events: Create and manage competitions (hackathons, VC pitches, practice sessions)
 - Pitches: Video pitch analysis with Hume AI emotion detection and coaching feedback
 - Scoring: AI-powered pitch analysis and scoring
@@ -46,6 +47,7 @@ from domains.pitches.mcp.pitch_tools import handle_pitch_mcp_call, pitch_tools
 from domains.scoring.mcp.scoring_mcp_tools import execute_scoring_mcp_tool, SCORING_MCP_TOOLS
 from domains.chat.mcp.chat_mcp_tools import execute_chat_mcp_tool, CHAT_MCP_TOOLS
 from domains.market.mcp.market_mcp_tools import execute_market_mcp_tool, MARKET_MCP_TOOLS
+from domains.system.mcp.system_mcp_tools import execute_system_mcp_tool, SYSTEM_MCP_TOOLS
 
 
 # Set up logging
@@ -58,6 +60,7 @@ class PitchScoopMCPServer:
     MCP server for PitchScoop pitch competition platform.
     
     Provides AI assistants with access to:
+    - System management and onboarding tools
     - Event management tools
     - Video pitch analysis with Hume AI emotion detection
     - AI-powered scoring and analysis  
@@ -73,6 +76,10 @@ class PitchScoopMCPServer:
         
         # Tool registry - maps tool names to their domains and executors
         self.tool_registry = {
+            # System domain tools (for onboarding and diagnostics)
+            **{name: {"domain": "system", "executor": execute_system_mcp_tool, "config": config}
+               for name, config in SYSTEM_MCP_TOOLS.items()},
+            
             # Events domain tools
             **{name: {"domain": "events", "executor": execute_events_mcp_tool, "config": config} 
                for name, config in EVENTS_MCP_TOOLS.items()},

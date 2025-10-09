@@ -1,0 +1,11 @@
+{
+  "server_command": "cd /Users/allierays/Sites/pitchscoop && docker compose exec -T api python mcp_server.py",
+  "transport": "stdio",
+  "server_name": "pitchscoop",
+  "server_version": "1.0.0",
+  "implementation_notes": [
+    "Implement MCP protocol client",
+    "Connect via stdio transport", 
+    "See MCP specification: https://modelcontextprotocol.io/introduction"
+  ]
+}

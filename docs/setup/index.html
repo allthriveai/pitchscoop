@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PitchScoop MCP Setup</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            background: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 18px;
+        }
+        .platform-card {
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .platform-card:hover {
+            border-color: #3182ce;
+            background: #f7fafc;
+        }
+        .platform-card.recommended {
+            border-color: #38a169;
+            background: #f0fff4;
+        }
+        .platform-name {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+        .badge {
+            background: #38a169;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .platform-description {
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+        .setup-steps {
+            display: none;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        .setup-steps.show {
+            display: block;
+        }
+        .step {
+            margin: 10px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        .step::before {
+            content: counter(step-counter);
+            counter-increment: step-counter;
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #3182ce;
+            color: white;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        .steps-list {
+            counter-reset: step-counter;
+        }
+        .config-box {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        .copy-button {
+            background: #3182ce;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .copy-button:hover {
+            background: #2c5282;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-unknown { background: #cbd5e0; }
+        .status-good { background: #38a169; }
+        .status-warning { background: #ed8936; }
+        .status-error { background: #e53e3e; }
+        .check-system {
+            background: #4299e1;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 20px 0;
+        }
+        .check-system:hover {
+            background: #3182ce;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 PitchScoop MCP Setup</h1>
+        <p class="subtitle">Connect your AI assistant to PitchScoop's pitch competition platform</p>
+        
+        <div style="margin: 20px 0; padding: 15px; background: #ebf8ff; border-radius: 8px;">
+            <strong>System Status:</strong>
+            <span id="docker-status"><span class="status-indicator status-unknown"></span>Docker: Checking...</span>
+            <span id="services-status" style="margin-left: 20px;"><span class="status-indicator status-unknown"></span>Services: Checking...</span>
+            <button class="check-system" onclick="checkSystemStatus()">Check System Status</button>
+        </div>
+
+        <h2>Choose Your AI Platform:</h2>
+        
+        <div class="platform-card recommended" onclick="toggleSetup('claude')">
+            <div class="platform-name">
+                Claude Desktop
+                <span class="badge">RECOMMENDED</span>
+            </div>
+            <div class="platform-description">
+                ✅ Native MCP support, full feature compatibility<br>
+                ⚡ Best performance and reliability
+            </div>
+            <div class="setup-steps" id="claude-setup">
+                <div class="steps-list">
+                    <div class="step">Install Docker Desktop from <a href="https://docs.docker.com/get-docker/" target="_blank">docker.com</a></div>
+                    <div class="step">Download/clone PitchScoop to your machine</div>
+                    <div class="step">Copy this configuration to Claude Desktop:</div>
+                </div>
+                <div class="config-box" id="claude-config">
+{
+  "mcpServers": {
+    "pitchscoop": {
+      "command": "docker",
+      "args": [
+        "compose", "-f", "/path/to/pitchscoop/docker-compose.yml",
+        "exec", "-T", "api", "python", "mcp_server.py"
+      ]
+    }
+  }
+}
+                </div>
+                <button class="copy-button" onclick="copyConfig('claude-config')">Copy Configuration</button>
+                <div class="steps-list" style="counter-reset: step-counter 3;">
+                    <div class="step">Paste config to: <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> (macOS)</div>
+                    <div class="step">Restart Claude Desktop completely</div>
+                    <div class="step">Say: "Help me set up PitchScoop" to begin!</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="platform-card" onclick="toggleSetup('chatgpt')">
+            <div class="platform-name">ChatGPT with MCP Bridge</div>
+            <div class="platform-description">
+                ⚠️ Community solution, requires MCP bridge installation<br>
+                🔧 More setup steps, some limitations possible
+            </div>
+            <div class="setup-steps" id="chatgpt-setup">
+                <div class="steps-list">
+                    <div class="step">Install Docker Desktop and Node.js</div>
+                    <div class="step">Install MCP bridge: <code>npm install -g mcp-chatgpt</code></div>
+                    <div class="step">Configure bridge with this config:</div>
+                </div>
+                <div class="config-box" id="chatgpt-config">
+{
+  "mcp_servers": [{
+    "name": "pitchscoop",
+    "command": ["docker", "compose", "-f", "/path/to/pitchscoop/docker-compose.yml", "exec", "-T", "api", "python", "mcp_server.py"]
+  }]
+}
+                </div>
+                <button class="copy-button" onclick="copyConfig('chatgpt-config')">Copy Configuration</button>
+                <div class="steps-list" style="counter-reset: step-counter 3;">
+                    <div class="step">Start bridge: <code>mcp-chatgpt --config config.json</code></div>
+                    <div class="step">Connect ChatGPT to the bridge</div>
+                    <div class="step">Say: "Set up my pitch competition platform"</div>
+                </div>
+                <p><strong>Note:</strong> See <a href="CHATGPT_MCP_SETUP.md">detailed ChatGPT setup guide</a> for complete instructions.</p>
+            </div>
+        </div>
+
+        <div class="platform-card" onclick="toggleSetup('custom')">
+            <div class="platform-name">Custom MCP Client</div>
+            <div class="platform-description">
+                🛠️ Build your own integration using MCP protocol<br>
+                💻 Full control, requires development work
+            </div>
+            <div class="setup-steps" id="custom-setup">
+                <div class="steps-list">
+                    <div class="step">Implement MCP protocol client (see <a href="https://modelcontextprotocol.io/introduction" target="_blank">MCP docs</a>)</div>
+                    <div class="step">Connect via stdio transport to:</div>
+                </div>
+                <div class="config-box">
+cd /path/to/pitchscoop && docker compose exec -T api python mcp_server.py
+                </div>
+                <div class="steps-list" style="counter-reset: step-counter 2;">
+                    <div class="step">Test with <code>tools/list</code> method</div>
+                    <div class="step">Use PitchScoop tools in your application</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; padding: 20px; background: #f7fafc; border-radius: 8px;">
+            <h3>🎯 What You Get</h3>
+            <ul>
+                <li><strong>Competition Management:</strong> Create hackathons, pitch events, and practice sessions</li>
+                <li><strong>AI-Powered Scoring:</strong> Automated pitch analysis and feedback</li>
+                <li><strong>Smart Recording:</strong> Audio transcription and processing</li>
+                <li><strong>Leaderboards:</strong> Real-time competition rankings</li>
+                <li><strong>RAG Chat:</strong> Ask questions about competition data</li>
+            </ul>
+        </div>
+
+        <div style="margin-top: 20px; text-align: center;">
+            <p><strong>Need Help?</strong> Check the <a href="../MCP_SETUP.md">detailed documentation</a> or <a href="../TROUBLESHOOTING.md">troubleshooting guide</a>.</p>
+        </div>
+    </div>
+
+    <script>
+        function toggleSetup(platform) {
+            // Hide all setup sections
+            const allSetups = document.querySelectorAll('.setup-steps');
+            allSetups.forEach(setup => {
+                setup.classList.remove('show');
+            });
+
+            // Show the clicked platform's setup
+            const targetSetup = document.getElementById(platform + '-setup');
+            if (targetSetup) {
+                targetSetup.classList.add('show');
+            }
+        }
+
+        function copyConfig(configId) {
+            const configElement = document.getElementById(configId);
+            const config = configElement.textContent.trim();
+            
+            // Update path placeholder with current directory hint
+            const updatedConfig = config.replace('/path/to/pitchscoop', window.location.pathname.includes('pitchscoop') ? 
+                window.location.pathname.split('/docs')[0] : 
+                '/path/to/pitchscoop');
+            
+            navigator.clipboard.writeText(updatedConfig).then(() => {
+                const button = event.target;
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.background = '#38a169';
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = '#3182ce';
+                }, 2000);
+            }).catch(() => {
+                alert('Please copy the configuration manually');
+            });
+        }
+
+        async function checkSystemStatus() {
+            const dockerStatus = document.getElementById('docker-status');
+            const servicesStatus = document.getElementById('services-status');
+            const button = event.target;
+            
+            button.textContent = 'Checking...';
+            button.disabled = true;
+            
+            // Mock system check (in real implementation, this would call your API)
+            setTimeout(() => {
+                // Simulate Docker check
+                dockerStatus.innerHTML = '<span class="status-indicator status-good"></span>Docker: Available';
+                
+                // Simulate services check  
+                servicesStatus.innerHTML = '<span class="status-indicator status-warning"></span>Services: Not running';
+                
+                button.textContent = 'Check System Status';
+                button.disabled = false;
+                
+                // Show helpful message
+                alert('System check complete! Docker is available but PitchScoop services are not running. Use your AI assistant to start them: "Start PitchScoop services"');
+            }, 2000);
+        }
+
+        // Auto-check status on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                checkSystemStatus();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -26,7 +26,7 @@ else:
 # Create async engine
 engine = create_async_engine(
     ASYNC_DATABASE_URL,
-    echo=True,  # Set to False in production
+    echo=False,  # Disabled to prevent polluting MCP stdout with SQL logs
     poolclass=NullPool,  # Disable connection pooling for development
     future=True
 )
@@ -75,7 +75,7 @@ async def init_db():
     """
     async with engine.begin() as conn:
         # Import all models here to ensure they're registered
-        from ..onboarding.entities import onboarding_session, user_profile, event_customization
+        from domains.onboarding.entities import onboarding_session, user_profile, event_customization
         
         # Create tables
         await conn.run_sync(Base.metadata.create_all)

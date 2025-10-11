@@ -20,8 +20,9 @@ class BrightDataService:
     
     def __init__(self):
         self.api_key = os.getenv("BRIGHT_DATA_API_KEY")
-        self.base_url = os.getenv("BRIGHT_DATA_BASE_URL", "https://api.brightdata.com")
-        self.rate_limit = int(os.getenv("BRIGHT_DATA_RATE_LIMIT", "100"))
+        self.base_url = os.getenv("BRIGHT_DATA_BASE_URL") or "https://api.brightdata.com"
+        rate_limit_str = os.getenv("BRIGHT_DATA_RATE_LIMIT") or "100"
+        self.rate_limit = int(rate_limit_str) if rate_limit_str else 100
         self.logger = get_logger("market.bright_data")
         
         # Rate limiting

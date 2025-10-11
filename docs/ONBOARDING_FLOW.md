@@ -11,6 +11,7 @@
 1. **Event Details**
    - Name of event
    - Date of event
+   - Event Type (dropdown, Hackathon, VC Pitch, Interview, Practice, Other)
    - Add a link to event to scrape for event details (optional)
    - Rules for judging
 
@@ -76,7 +77,7 @@
 ## Content Structure for Implementation
 
 ### Welcome Messages
-- **New Event Organizer:** "Ready to create an amazing competition?"
+- **New Event Organizer:** "Ready to create your amazing event?"
 - **New Participant:** "Find the perfect event to showcase your skills!"
 - **Returning User:** "Welcome back! Continue where you left off."
 
